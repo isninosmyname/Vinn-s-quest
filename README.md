@@ -2,7 +2,8 @@
 
 A vibrant, retro-inspired 2D action-platformer built with React, TypeScript, and the HTML5 Canvas API.
 
-![Vinn's Quest](image.png)
+![Vinn's Quest](<img width="824" height="511" alt="image" src="https://github.com/user-attachments/assets/5a6a7fc1-d059-49ea-a022-775ed804dcbd" />
+)
 
 # Alert!
 This game is in alpha so there will be many errors, bugs, and missing features. And the bosses that are not the first world one are TOOOO Easy. Please be patient as I work on improving the game.
