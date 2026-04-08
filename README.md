@@ -1,73 +1,75 @@
-# React + TypeScript + Vite
+# Vinn's Quest
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A vibrant, retro-inspired 2D action-platformer built with React, TypeScript, and the HTML5 Canvas API.
 
-Currently, two official plugins are available:
+![Vinn's Quest](image.png)
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+# Alert!
+This game is in alpha so there will be many errors, bugs, and missing features. And the bosses that are not the first world one are TOOOO Easy. Please be patient as I work on improving the game.
 
-## React Compiler
+## 📖 The Story
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+Join **Vinn**, a loyal knight of the realm, on an epic journey to rescue the Queen. After a mysterious portal opens in the throne room, the Queen is snatched away by a mechanical menace known as the **Skelet-Bot**. Vinn must traverse dangerous lands, from lush forests to volcanic depths, to bring her home.
 
-## Expanding the ESLint configuration
+## 🎮 Features
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+- **Three Unique Worlds**:
+  - 🌲 **The Forest**: A dense woodland filled with tech-skeletons and hidden secrets.
+  - 🌋 **Volcano Realm**: A perilous land of lava and intense heat.
+  - 🎨 **Paint Land**: A surreal world where the ground itself can be a hazard.
+- **Epic Boss Battles**: Face off against the **Golem**, the **Blaze King**, and the titan of the ink, the **Ink Colossus**.
+- **Dynamic Gameplay**:
+  - Fluid movement and combat mechanics.
+  - Power-ups like the **Double Jump** to reach new heights.
+  - Environmental hazards like sinking paint and bouncy mushroom pads.
+- **Cinematic Narrative**: Fully animated intro and ending cutscenes that tell Vinn's story.
+- **Retro Aesthetics**: Glowing neon visuals, particle effects, and a custom "Press Start 2P" inspired UI.
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+## ⌨️ Controls
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+| Action | Key(s) |
+| :--- | :--- |
+| **Move Left / Right** | `A` / `D` or `Left` / `Right` Arrow Keys |
+| **Jump** | `W`, `Up` Arrow, or `Ctrl` |
+| **Attack** | `Space` |
+| **Advance Dialogue** | `Space` |
+| **Skip Intro** | Click the "Skip Cutscene" button |
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+## 🛠️ Tech Stack
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+- **Core**: [React 19](https://react.dev/)
+- **Language**: [TypeScript](https://www.typescriptlang.org/)
+- **Build Tool**: [Vite](https://vitejs.dev/)
+- **Rendering**: HTML5 Canvas API
+- **Styling**: Vanilla CSS with custom design tokens
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## 🚀 Getting Started
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+### Prerequisites
+
+- Node.js (Latest LTS recommended)
+- npm
+
+### Installation
+
+1. Clone the repository:
+   ```bash
+   git clone <repository-url>
+   cd Vinn's Quest
+   ```
+
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+
+3. Start the development server:
+   ```bash
+   npm run dev
+   ```
+
+4. Open your browser and navigate to `http://localhost:5173`.
+
+## 📜 License
+
+This project is licensed under the MIT License.
