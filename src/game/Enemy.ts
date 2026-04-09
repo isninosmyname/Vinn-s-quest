@@ -55,9 +55,11 @@ export class Enemy {
   }
 
   takeDamage() {
+    if (this.isHit) return false;
     this.health -= 1;
     this.isHit = true;
     this.hitTimer = 0;
+    return true;
   }
 
   draw(ctx: CanvasRenderingContext2D, cameraX: number) {

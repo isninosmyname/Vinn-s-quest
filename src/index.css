@@ -243,3 +243,188 @@ canvas {
 .hud button:active {
   transform: translateY(1px);
 }
+
+/* Premium Main Menu Styles */
+.menu-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+  z-index: 100;
+  background: radial-gradient(circle at 50% 50%, rgba(20, 30, 60, 0.4), rgba(0, 0, 0, 0.2));
+  overflow: hidden;
+}
+
+.menu-background {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.cloud {
+  position: absolute;
+  background: #fff;
+  opacity: 0.1;
+  border-radius: 50px;
+  animation: drift linear infinite;
+}
+
+@keyframes drift {
+  from { transform: translateX(-200px); }
+  to { transform: translateX(1000px); }
+}
+
+.ribbon-banner {
+  position: absolute;
+  top: 15%;
+  width: 450px;
+  height: 80px;
+  background: linear-gradient(to bottom, #ffcc00, #ff8c00);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-retro);
+  font-size: 1.4rem;
+  color: #fff;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5), 0 0 10px rgba(255, 255, 255, 0.5);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
+  clip-path: polygon(0% 0%, 100% 0%, 95% 50%, 100% 100%, 0% 100%, 5% 50%);
+  border-top: 4px solid #fff;
+  border-bottom: 4px solid #cc6600;
+  transform-style: preserve-3d;
+  animation: bannerWave 3s ease-in-out infinite;
+}
+
+@keyframes bannerWave {
+  0%, 100% { transform: scale(1) translateY(0); }
+  50% { transform: scale(1.05) translateY(-5px); }
+}
+
+.play-cluster {
+  position: absolute;
+  top: 35%;
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+}
+
+.btn-circle {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, #a0522d, #5d2906);
+  border: 6px solid #8b4513;
+  box-shadow: 0 8px 0 #3d1c04, 0 15px 30px rgba(0, 0, 0, 0.5);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.btn-circle:hover {
+  transform: scale(1.1) translateY(-5px);
+  box-shadow: 0 12px 0 #3d1c04, 0 20px 40px rgba(0, 0, 0, 0.6);
+}
+
+.btn-circle:active {
+  transform: scale(0.95) translateY(4px);
+  box-shadow: 0 4px 0 #3d1c04, 0 10px 20px rgba(0, 0, 0, 0.4);
+}
+
+.btn-play {
+  width: 140px;
+  height: 140px;
+  background: radial-gradient(circle at 30% 30%, #ffcc00, #b8860b);
+  border: 8px solid #8b6508;
+  box-shadow: 0 12px 0 #5c3300, 0 20px 40px rgba(0, 0, 0, 0.6);
+}
+
+.play-icon {
+  width: 0;
+  height: 0;
+  border-top: 25px solid transparent;
+  border-bottom: 25px solid transparent;
+  border-left: 45px solid #fff;
+  margin-left: 10px;
+  filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.3));
+}
+
+/* Level Selector Styles */
+.selector-content {
+  background: radial-gradient(circle at 50% 50%, #5d2906, #3d1c04);
+  border: 8px solid #8b4513;
+  padding: 2rem;
+  border-radius: 20px;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.8);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.world-row {
+  width: 100%;
+  margin-bottom: 1.5rem;
+}
+
+.level-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 1rem;
+}
+
+.level-btn {
+  width: 60px;
+  height: 60px;
+  background: #a0522d;
+  border: 4px solid #8b4513;
+  border-radius: 12px;
+  color: white;
+  font-family: var(--font-retro);
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 4px 0 #3d1c04;
+}
+
+.level-btn:hover:not(.locked) {
+  transform: translateY(-4px);
+  background: #ffcc00;
+  color: #3d1c04;
+  box-shadow: 0 8px 0 #3d1c04;
+}
+
+.level-btn.locked {
+  background: #444;
+  border: 4px solid #333;
+  color: #666;
+  opacity: 0.7;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.back-btn {
+  margin-top: 1rem;
+  background: #ff2d55;
+  border: 4px solid #800000;
+  color: white;
+  padding: 0.8rem 1.5rem;
+  font-family: var(--font-retro);
+  font-size: 0.7rem;
+  cursor: pointer;
+  border-radius: 10px;
+  transition: all 0.2s;
+}
+
+.back-btn:hover {
+  transform: scale(1.05);
+  background: #ff5e7d;
+}
+

@@ -9,7 +9,6 @@ export class Vinn {
   direction: number = 1;
   animTimer: number = 0;
   attackTimer: number = 0;
-  groundY: number;
   onGround: boolean = true;
   
   hasDoubleJump: boolean = false;
@@ -18,6 +17,8 @@ export class Vinn {
   isSinking: boolean = false;
   sinkTimer: number = 0;
   currentSpeedScale: number = 1.0;
+  visualType: 'NORMAL' | 'SPIKY' = 'NORMAL';
+  playerName: string = 'P1';
 
   lastSafeX: number = 100;
   lastSafeY: number = 400;
@@ -32,11 +33,14 @@ export class Vinn {
   maxHealth: number = 20;
   isHit: boolean = false;
   hitTimer: number = 0;
+  color: string = '#00f2ff';
 
-  constructor(x: number, y: number) {
+  constructor(x: number, y: number, color: string = '#00f2ff', visualType: 'NORMAL' | 'SPIKY' = 'NORMAL', name: string = 'P1') {
     this.x = x;
     this.y = y;
-    this.groundY = y;
+    this.color = color;
+    this.visualType = visualType;
+    this.playerName = name;
     this.lastSafeX = x;
     this.lastSafeY = y;
   }
@@ -78,6 +82,15 @@ export class Vinn {
     this.animTimer += dt;
     this.currentSpeedScale = speedMult;
 
+    if (this.health <= 0) {
+        if (keys[' ']) {
+            this.health = this.maxHealth;
+            this.x = this.lastSafeX;
+            this.y = this.lastSafeY;
+        }
+        return;
+    }
+
     if (this.isHit) {
       this.hitTimer += dt;
       if (this.hitTimer > 0.4) {
@@ -101,18 +114,8 @@ export class Vinn {
     } else {
         this.y += this.vy;
     }
-
-    if (this.y + this.limbLength > this.groundY && this.groundY > 0) {
-      this.y = this.groundY - this.limbLength;
-      this.vy = 0;
-      if (!this.onGround) {
-          this.onGround = true;
-          this.lastSafeX = this.x;
-          this.lastSafeY = this.y;
-      }
-    }
-
-    this.isSinking = false; 
+    
+    this.onGround = false; 
     platforms.forEach(p => {
       if (this.x > p.x && this.x < p.x + p.w) {
         if (p.type === 'PAINT') {
@@ -189,24 +192,43 @@ export class Vinn {
   }
 
   draw(ctx: CanvasRenderingContext2D, cameraX: number) {
-    const { x, y, direction, animTimer, state, attackTimer, isHit, isSinking } = this;
+    const { x, y, direction, animTimer, state, attackTimer, isHit, isSinking, color, visualType, health } = this;
     const relX = x - cameraX;
     
+    if (health <= 0) {
+        ctx.save(); ctx.globalAlpha = 0.5; ctx.strokeStyle = '#fff'; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(relX, y, 10, 0, Math.PI*2); ctx.stroke();
+        ctx.strokeRect(relX - 10, y + 15, 20, 2);
+        ctx.restore(); return;
+    }
+
     const walkCycle = (state === 'WALKING') ? Math.sin(animTimer * (12 * this.currentSpeedScale)) * 20 : 0;
     const idleCycle = (state === 'IDLE') ? Math.sin(animTimer * 3) * 5 : 0;
-
+ 
     ctx.save();
-    ctx.strokeStyle = isHit ? '#fff' : '#00f2ff';
+    ctx.strokeStyle = isHit ? '#fff' : color;
     ctx.lineWidth = 4;
     ctx.lineCap = 'round';
     ctx.shadowBlur = 15;
-    ctx.shadowColor = isHit ? '#fff' : '#00f2ff';
+    ctx.shadowColor = isHit ? '#fff' : color;
 
     ctx.beginPath();
     let headYOffset = this.spineLength + this.headRadius + idleCycle;
+    const headY = y - headYOffset;
     if (isSinking) headYOffset -= Math.sin(animTimer * 2) * 2;
-    ctx.arc(relX, y - headYOffset, this.headRadius, 0, Math.PI * 2);
+    ctx.arc(relX, headY, this.headRadius, 0, Math.PI * 2);
     ctx.stroke();
+
+    // Spiky Hair/Hat for Player 2
+    if (visualType === 'SPIKY') {
+        ctx.beginPath();
+        ctx.moveTo(relX - 15, headY - 10);
+        ctx.lineTo(relX - 5, headY - 25);
+        ctx.lineTo(relX, headY - 12);
+        ctx.lineTo(relX + 5, headY - 25);
+        ctx.lineTo(relX + 15, headY - 10);
+        ctx.stroke();
+    }
 
     ctx.lineWidth = 4;
     const neckY = y - this.spineLength - (isSinking ? 0 : idleCycle);

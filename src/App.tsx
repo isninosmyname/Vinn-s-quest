@@ -43,10 +43,10 @@ const WORLD_CONFIGS: Record<number, { theme: WorldTheme, levels: any[] }> = {
   2: {
     theme: 'VOLCANO',
     levels: [
-      { length: 2400, enemies: [1000, 1800], platforms: [{x: 0, y: 460, w: 400}, {x: 500, y: 400, w: 100}, {x: 700, y: 350, w: 100}, {x: 900, y: 300, w: 100}, {x: 1100, y: 460, w: 1300}], items: [] },
-      { length: 3000, enemies: [1200, 2200], platforms: [{x: 0, y: 460, w: 600}, {x: 700, y: 400, w: 100}, {x: 900, y: 350, w: 100}, {x: 1100, y: 300, w: 100}, {x: 1400, y: 460, w: 1600}], items: [] },
-      { length: 3600, enemies: [1200, 2000, 2800], platforms: [{x: 0, y: 460, w: 1000}, {x: 1100, y: 350, w: 100}, {x: 1300, y: 250, w: 200}, {x: 1600, y: 460, w: 2000}], items: [] },
-      { length: 3000, enemies: [1000, 2000], platforms: [{x: 0, y: 460, w: 800}, {x: 1000, y: 300, w: 100}, {x: 1200, y: 200, w: 100}, {x: 1500, y: 460, w: 1500}], items: [] },
+      { length: 2800, enemies: [{x: 1000, type: 'NORMAL'}, {x: 1800, type: 'NORMAL'}], platforms: [{x: 0, y: 460, w: 400}, {x: 600, y: 400, w: 200}, {x: 1000, y: 350, w: 200}, {x: 1400, y: 300, w: 200}, {x: 1800, y: 460, w: 1000}], items: [] },
+      { length: 3200, enemies: [{x: 1200, type: 'NORMAL'}, {x: 2200, type: 'NORMAL'}], platforms: [{x: 0, y: 460, w: 600}, {x: 800, y: 400, w: 100, type: 'MUSHROOM'}, {x: 1100, y: 300, w: 300}, {x: 1600, y: 250, w: 100, type: 'MUSHROOM'}, {x: 1900, y: 460, w: 1300}], items: [] },
+      { length: 4000, enemies: [{x: 1200, type: 'NORMAL'}, {x: 2000, type: 'NORMAL'}, {x: 3200, type: 'NORMAL'}], platforms: [{x: 0, y: 460, w: 1000}, {x: 1200, y: 350, w: 300}, {x: 1700, y: 250, w: 200}, {x: 2200, y: 400, w: 100}, {x: 2500, y: 300, w: 100, type: 'MUSHROOM'}, {x: 2800, y: 460, w: 1200}], items: [] },
+      { length: 3600, enemies: [{x: 1000, type: 'NORMAL'}, {x: 2500, type: 'NORMAL'}], platforms: [{x: 0, y: 460, w: 800}, {x: 1000, y: 300, w: 400}, {x: 1600, y: 200, w: 400}, {x: 2200, y: 400, w: 200}, {x: 2600, y: 460, w: 1000}], items: [] },
       { length: 1600, enemies: [], platforms: [{x: 0, y: 460, w: 1600}], isBoss: true, bossType: 'BLAZE_KING' }
     ]
   },
@@ -65,12 +65,50 @@ const WORLD_CONFIGS: Record<number, { theme: WorldTheme, levels: any[] }> = {
 function App() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [tutorialPhase, setTutorialPhase] = useState(0);
-  const [gameState, setGameState] = useState<'INTRO_CUTSCENE' | 'TUTORIAL' | 'PLAYING' | 'GAMEOVER' | 'LEVEL_TRANSITION' | 'WORLD_COMPLETE' | 'ENDING_CUTSCENE' | 'GAME_WON'>('INTRO_CUTSCENE');
+  const [gameState, setGameState] = useState<'START_MENU' | 'SETTINGS' | 'LEVEL_SELECTOR' | 'INTRO_CUTSCENE' | 'TUTORIAL' | 'PLAYING' | 'GAMEOVER' | 'LEVEL_TRANSITION' | 'WORLD_COMPLETE' | 'ENDING_CUTSCENE' | 'GAME_WON'>('START_MENU');
+  const [language, setLanguage] = useState<'en' | 'es'>(() => (localStorage.getItem('vinns_quest_lang') as 'en' | 'es') || 'en');
+  const [vinnColor, setVinnColor] = useState(() => localStorage.getItem('vinns_quest_color') || '#00f2ff');
+  const [vinn2Color, setVinn2Color] = useState(() => localStorage.getItem('vinns_quest_color2') || '#ff00ff');
+  const [isTwoPlayer, setIsTwoPlayer] = useState(() => localStorage.getItem('vinns_quest_2p') === 'true');
+
+  const t = (key: string) => {
+      const i18n: any = {
+          en: {
+              PLAY: 'PLAY', SETTINGS: 'SETTINGS', BACK: 'BACK TO MENU', CHOOSE_COLOR: 'HERO COLOR', LANGUAGE: 'LANGUAGE',
+              SELECT_LEVEL: 'SELECT LEVEL', NEXT: 'NEXT LEVEL', RESTART: 'RESTART QUEST', TRY_AGAIN: 'TRY AGAIN',
+              DEFEATED: 'DEFEATED', WORLD: 'WORLD', LEVEL: 'LEVEL', COMPLETE: 'COMPLETE',
+              QUEST_MODE: 'QUEST MODE', SOLO: 'SOLO', DUO: 'DUO', P1_COLOR: 'P1 COLOR', P2_COLOR: 'P2 COLOR'
+          },
+          es: {
+              PLAY: 'JUGAR', SETTINGS: 'AJUSTES', BACK: 'VOLVER AL MENÚ', CHOOSE_COLOR: 'COLOR DEL HÉROE', LANGUAGE: 'IDIOMA',
+              SELECT_LEVEL: 'ELEGIR NIVEL', NEXT: 'SIGUIENTE', RESTART: 'REINICIAR', TRY_AGAIN: 'REINTENTAR',
+              DEFEATED: 'DERROTADO', WORLD: 'MUNDO', LEVEL: 'NIVEL', COMPLETE: 'COMPLETADO',
+              QUEST_MODE: 'MODO DE JUEGO', SOLO: 'SOLO', DUO: 'DÚO', P1_COLOR: 'P1 COLOR', P2_COLOR: 'P2 COLOR'
+          }
+      };
+      return i18n[language][key] || key;
+  };
+
+  const [unlockedProgress, setUnlockedProgress] = useState<{world: number, level: number}>(() => {
+      const saved = localStorage.getItem('vinns_quest_progress');
+      return saved ? JSON.parse(saved) : { world: 1, level: 1 };
+  });
+
+  useEffect(() => {
+      localStorage.setItem('vinns_quest_progress', JSON.stringify(unlockedProgress));
+      localStorage.setItem('vinns_quest_lang', language);
+      localStorage.setItem('vinns_quest_color', vinnColor);
+      localStorage.setItem('vinns_quest_color2', vinn2Color);
+      localStorage.setItem('vinns_quest_2p', isTwoPlayer.toString());
+      if (vinnRef.current) vinnRef.current.color = vinnColor;
+      if (vinn2Ref.current) vinn2Ref.current.color = vinn2Color;
+  }, [unlockedProgress, language, vinnColor, vinn2Color, isTwoPlayer]);
   const [currentWorld, setCurrentWorld] = useState(1);
   const [currentLevel, setCurrentLevel] = useState(1);
   const [keys, setKeys] = useState<Record<string, boolean>>({});
   
-  const vinnRef = useRef<Vinn>(new Vinn(100, 420));
+  const vinnRef = useRef<Vinn>(new Vinn(100, 420, vinnColor, 'NORMAL', 'Vinn'));
+  const vinn2Ref = useRef<Vinn>(new Vinn(150, 420, vinn2Color, 'SPIKY', 'Jhon'));
   const enemiesRef = useRef<Enemy[]>([]);
   const bossRef = useRef<Boss | null>(null);
   const itemsRef = useRef<Item[]>([]);
@@ -83,9 +121,16 @@ function App() {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-        setKeys(prev => ({ ...prev, [e.key.toLowerCase()]: true }));
-        if (e.key === 'w' || e.key === 'ArrowUp' || e.key === 'Control') {
+        const k = e.key.toLowerCase();
+        setKeys(prev => ({ ...prev, [k]: true }));
+        
+        // Vinn (P1) Jump: W or Control
+        if (k === 'w' || e.key === 'Control') {
             vinnRef.current.jump();
+        }
+        // Jhon (P2) Jump: ArrowUp or Shift
+        if (isTwoPlayer && (e.key === 'ArrowUp' || e.key === 'Shift')) {
+            vinn2Ref.current.jump();
         }
         if (e.key === ' ' && gameState === 'INTRO_CUTSCENE') {
             musicRef.current.resume();
@@ -102,11 +147,27 @@ function App() {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
+    if (gameState === 'WORLD_COMPLETE') {
+        const nextWorld = currentWorld + 1;
+        setUnlockedProgress(prev => {
+            if (nextWorld > prev.world) return { world: nextWorld, level: 1 };
+            return prev;
+        });
+    }
   }, [gameState]);
 
   const loadLevel = (worldIndex: number, levelIndex: number) => {
     const world = WORLD_CONFIGS[worldIndex];
+    if (!world) { setGameState('GAME_WON'); return; }
     const config = world.levels[levelIndex - 1];
+    
+    // Update progress
+    setUnlockedProgress(prev => {
+        if (worldIndex > prev.world) return { world: worldIndex, level: levelIndex };
+        if (worldIndex === prev.world && levelIndex > prev.level) return { world: worldIndex, level: levelIndex };
+        return prev;
+    });
+
     vinnRef.current.x = 100;
     vinnRef.current.y = 400;
     vinnRef.current.health = vinnRef.current.maxHealth;
@@ -128,24 +189,89 @@ function App() {
   useGameLoop((dt: number) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
+    const world = WORLD_CONFIGS[currentWorld];
+    
+    // Sync cutscene language and player settings
+    if (cutsceneRef.current) cutsceneRef.current.setLanguage(language, isTwoPlayer, vinnColor, vinn2Color);
+    if (endingRef.current) endingRef.current.setLanguage(language, isTwoPlayer, vinnColor, vinn2Color);
+
+    if (gameState === 'PLAYING' && world.theme === 'VOLCANO' && Math.random() < 0.02) {
+        particlesRef.current.push({
+            x: cameraXRef.current + Math.random() * 800,
+            y: 500,
+            vx: (Math.random() - 0.5) * 5,
+            vy: -10 - Math.random() * 10,
+            life: 1,
+            color: '#ff4500'
+        });
+    }
+
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    const world = WORLD_CONFIGS[currentWorld];
     const levelConfig = world.levels[currentLevel - 1];
-    const platforms = levelConfig.platforms || [];
+    const worldPlatforms = levelConfig.platforms || [];
 
     if (gameState === 'PLAYING' || gameState === 'TUTORIAL') {
-      vinnRef.current.update(dt, keys, levelConfig.length - 50, platforms, gameState === 'TUTORIAL' ? 0.7 : 1.0);
+      const tutorialPlatforms = [
+          {x: 0, y: 460, w: 800, type: 'NORMAL'},
+          {x: 850, y: 460, w: 400, type: 'NORMAL'},
+          {x: 1300, y: 460, w: 300, type: 'NORMAL'}
+      ] as Platform[];
+      const activePlatforms = gameState === 'TUTORIAL' ? tutorialPlatforms : worldPlatforms;
+      const activeLength = gameState === 'TUTORIAL' ? 1600 : levelConfig.length;
+
+      // P1 Update
+      vinnRef.current.update(dt, keys, activeLength - 50, activePlatforms, gameState === 'TUTORIAL' ? 0.7 : 1.0);
       
-      if (vinnRef.current.health <= 0) {
+      // P2 Update
+      if (isTwoPlayer) {
+          const p2Keys = {
+              'a': keys['arrowleft'], 'd': keys['arrowright'], ' ': keys['enter']
+          };
+          vinn2Ref.current.update(dt, p2Keys, activeLength - 50, activePlatforms, 1.0);
+
+          // Revive Logic
+          if (vinnRef.current.health > 0 && vinn2Ref.current.health <= 0) {
+              const d = Math.abs(vinnRef.current.x - vinn2Ref.current.x) + Math.abs(vinnRef.current.y - vinn2Ref.current.y);
+              if (d < 60) vinn2Ref.current.health = 5;
+          }
+          if (vinn2Ref.current.health > 0 && vinnRef.current.health <= 0) {
+            const d = Math.abs(vinnRef.current.x - vinn2Ref.current.x) + Math.abs(vinnRef.current.y - vinn2Ref.current.y);
+            if (d < 60) vinnRef.current.health = 5;
+          }
+      }
+
+      const anyAlive = vinnRef.current.health > 0 || (isTwoPlayer && vinn2Ref.current.health > 0);
+      
+      if (vinnRef.current.y > 550 && world.theme === 'VOLCANO') vinnRef.current.health = 0;
+      if (isTwoPlayer && vinn2Ref.current.y > 550 && world.theme === 'VOLCANO') vinn2Ref.current.health = 0;
+
+      // Geyser Collision
+      particlesRef.current.forEach(p => {
+          if (p.color === '#ff4500' && !vinnRef.current.isHit) {
+              const dx = vinnRef.current.x - p.x;
+              const dy = vinnRef.current.y - p.y;
+              if (Math.abs(dx) < 30 && Math.abs(dy) < 50) {
+                  vinnRef.current.takeDamage(5);
+              }
+          }
+      });
+
+      if (!anyAlive && gameState === 'PLAYING') {
         setGameState('GAMEOVER');
       }
 
       itemsRef.current.forEach(item => {
-          if (!item.collected && Math.abs(vinnRef.current.x - item.x) < 40 && Math.abs(vinnRef.current.y - item.y) < 40) {
+          const checkCol = (p: any) => !item.collected && Math.abs(p.x - item.x) < 40 && Math.abs(p.y - item.y) < 40;
+          if (checkCol(vinnRef.current)) {
               item.collected = true;
-              if (item.type === 'DOUBLE_JUMP') vinnRef.current.hasDoubleJump = true;
+              vinnRef.current.hasDoubleJump = true;
+              spawnParticles(item.x, item.y, '#fff');
+          }
+          if (isTwoPlayer && checkCol(vinn2Ref.current)) {
+              item.collected = true;
+              vinn2Ref.current.hasDoubleJump = true;
               spawnParticles(item.x, item.y, '#fff');
           }
       });
@@ -165,24 +291,30 @@ function App() {
             setGameState('GAME_WON');
         }
     } else if (gameState === 'TUTORIAL') {
-        const tutorialPlatforms = [
-            {x: 0, y: 460, w: 800, type: 'NORMAL'},
-            {x: 850, y: 460, w: 400, type: 'NORMAL'},
-            {x: 1300, y: 460, w: 300, type: 'NORMAL'}
-        ] as Platform[];
-        vinnRef.current.update(dt, keys, 1600, tutorialPlatforms, 0.7);
-        
         if (!enemiesRef.current.length) {
             enemiesRef.current = [new Enemy(600, 420, 'TECH')];
         }
         const techSkeleton = enemiesRef.current[0];
-        techSkeleton.update(dt, vinnRef.current.x);
+        let tutTargetX = vinnRef.current.x;
+        if (isTwoPlayer) {
+            const d1 = Math.abs(techSkeleton.x - vinnRef.current.x);
+            const d2 = Math.abs(techSkeleton.x - vinn2Ref.current.x);
+            if (vinn2Ref.current.health > 0 && (vinnRef.current.health <= 0 || d2 < d1)) tutTargetX = vinn2Ref.current.x;
+        }
+        techSkeleton.update(dt, tutTargetX);
 
         if (tutorialPhase === 0 && (keys['a'] || keys['d'])) setTutorialPhase(1);
         if (tutorialPhase === 1 && vinnRef.current.y < 400) setTutorialPhase(2);
 
         if (vinnRef.current.state === 'ATTACKING' && vinnRef.current.attackTimer < 0.1) {
             if (Math.abs(vinnRef.current.x - techSkeleton.x) < 80 && !techSkeleton.isHit) {
+                techSkeleton.takeDamage();
+                spawnParticles(techSkeleton.x, techSkeleton.y);
+                if (techSkeleton.health <= 0) setTutorialPhase(3);
+            }
+        }
+        if (isTwoPlayer && vinn2Ref.current.state === 'ATTACKING' && vinn2Ref.current.attackTimer < 0.1) {
+            if (Math.abs(vinn2Ref.current.x - techSkeleton.x) < 80 && !techSkeleton.isHit) {
                 techSkeleton.takeDamage();
                 spawnParticles(techSkeleton.x, techSkeleton.y);
                 if (techSkeleton.health <= 0) setTutorialPhase(3);
@@ -200,37 +332,93 @@ function App() {
         }
       }
 
-      const targetCamX = Math.max(0, Math.min(levelConfig.length - 800, vinnRef.current.x - 400));
+      const leadX = isTwoPlayer ? Math.max(vinnRef.current.x, vinn2Ref.current.x) : vinnRef.current.x;
+      const targetCamX = Math.max(0, Math.min(levelConfig.length - 800, leadX - 400));
       cameraXRef.current += (targetCamX - cameraXRef.current) * 0.1;
 
       enemiesRef.current.forEach(enemy => {
-        enemy.update(dt, vinnRef.current.x);
-        if (Math.abs(enemy.x - vinnRef.current.x) < 40 && enemy.state === 'ATTACKING' && enemy.attackTimer < 0.1) {
+        let targetX = vinnRef.current.x;
+        if (isTwoPlayer) {
+            const d1 = Math.abs(enemy.x - vinnRef.current.x);
+            const d2 = Math.abs(enemy.x - vinn2Ref.current.x);
+            const p1Alive = vinnRef.current.health > 0;
+            const p2Alive = vinn2Ref.current.health > 0;
+            if (p1Alive && p2Alive) targetX = d1 < d2 ? vinnRef.current.x : vinn2Ref.current.x;
+            else if (p2Alive) targetX = vinn2Ref.current.x;
+        }
+        enemy.update(dt, targetX);
+        const dx = Math.abs(enemy.x - vinnRef.current.x);
+        const dy = Math.abs(enemy.y - vinnRef.current.y);
+        if (dx < 40 && dy < 60 && enemy.state === 'ATTACKING' && enemy.attackTimer < 0.1) {
           vinnRef.current.takeDamage(1);
+        }
+        if (isTwoPlayer) {
+           const dx2 = Math.abs(enemy.x - vinn2Ref.current.x);
+           const dy2 = Math.abs(enemy.y - vinn2Ref.current.y);
+           if (dx2 < 40 && dy2 < 60 && enemy.state === 'ATTACKING' && enemy.attackTimer < 0.1) {
+               vinn2Ref.current.takeDamage(1);
+           }
         }
       });
 
       if (bossRef.current) {
-          bossRef.current.update(dt, vinnRef.current.x);
-          if (bossRef.current.health > 0 && Math.abs(bossRef.current.x - vinnRef.current.x) < 100) {
+          let bTargetX = vinnRef.current.x;
+          if (isTwoPlayer) {
+              const d1 = Math.abs(bossRef.current.x - vinnRef.current.x);
+              const d2 = Math.abs(bossRef.current.x - vinn2Ref.current.x);
+              const p1A = vinnRef.current.health > 0;
+              const p2A = vinn2Ref.current.health > 0;
+              if (p1A && p2A) bTargetX = d1 < d2 ? vinnRef.current.x : vinn2Ref.current.x;
+              else if (p2A) bTargetX = vinn2Ref.current.x;
+          }
+          bossRef.current.update(dt, bTargetX);
+          const dx = Math.abs(bossRef.current.x - vinnRef.current.x);
+          const dy = Math.abs(bossRef.current.y - vinnRef.current.y);
+          if (bossRef.current.health > 0 && dx < 100 && dy < 100) {
               if (bossRef.current.state === 'ATTACKING' && bossRef.current.attackTimer > 0.8 && bossRef.current.attackTimer < 1.0) {
                   const dir = vinnRef.current.x > bossRef.current.x ? 1 : -1;
                   vinnRef.current.takeDamage(2, dir, 12);
                   cameraShakeRef.current = 15;
               }
           }
+          if (isTwoPlayer && bossRef.current.health > 0) {
+              const dx2 = Math.abs(bossRef.current.x - vinn2Ref.current.x);
+              const dy2 = Math.abs(bossRef.current.y - vinn2Ref.current.y);
+              if (dx2 < 100 && dy2 < 100) {
+                if (bossRef.current.state === 'ATTACKING' && bossRef.current.attackTimer > 0.8 && bossRef.current.attackTimer < 1.0) {
+                    const dir = vinn2Ref.current.x > bossRef.current.x ? 1 : -1;
+                    vinn2Ref.current.takeDamage(2, dir, 12);
+                    cameraShakeRef.current = 15;
+                }
+              }
+          }
       }
 
       if (vinnRef.current.state === 'ATTACKING' && vinnRef.current.attackTimer < 0.1) {
         enemiesRef.current.forEach(enemy => {
-          if (Math.abs(vinnRef.current.x - enemy.x) < 80 && !enemy.isHit && enemy.health > 0) {
+          if (enemy.health > 0 && Math.abs(vinnRef.current.x - enemy.x) < 80 && !enemy.isHit) {
             enemy.takeDamage();
             spawnParticles(enemy.x, enemy.y);
           }
         });
-        if (bossRef.current && Math.abs(vinnRef.current.x - bossRef.current.x) < 100 && !bossRef.current.isHit && bossRef.current.health > 0) {
-            bossRef.current.takeDamage(1);
-            spawnParticles(bossRef.current.x, bossRef.current.y, '#fff');
+        if (bossRef.current && Math.abs(vinnRef.current.x - bossRef.current.x) < 120) {
+            if (bossRef.current.takeDamage(1)) {
+                spawnParticles(bossRef.current.x, bossRef.current.y);
+            }
+        }
+      }
+
+      if (isTwoPlayer && vinn2Ref.current.state === 'ATTACKING' && vinn2Ref.current.attackTimer < 0.1) {
+        enemiesRef.current.forEach(enemy => {
+          if (enemy.health > 0 && Math.abs(vinn2Ref.current.x - enemy.x) < 80 && !enemy.isHit) {
+            enemy.takeDamage();
+            spawnParticles(enemy.x, enemy.y);
+          }
+        });
+        if (bossRef.current && Math.abs(vinn2Ref.current.x - bossRef.current.x) < 120) {
+            if (bossRef.current.takeDamage(1)) {
+                spawnParticles(bossRef.current.x, bossRef.current.y);
+            }
         }
       }
     }
@@ -243,8 +431,10 @@ function App() {
       }
     }
 
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#0a0b1e'; // Dark void color
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
     
+    ctx.save();
     if (cameraShakeRef.current > 0) {
         const sx = (Math.random() - 0.5) * cameraShakeRef.current;
         const sy = (Math.random() - 0.5) * cameraShakeRef.current;
@@ -255,6 +445,20 @@ function App() {
 
     const camX = cameraXRef.current;
     
+    if (gameState === 'START_MENU') {
+        const ctx = canvasRef.current?.getContext('2d');
+        if (ctx) {
+            const grad = ctx.createLinearGradient(0, 0, 0, 500);
+            grad.addColorStop(0, '#151833');
+            grad.addColorStop(1, '#1a1a2e');
+            ctx.fillStyle = grad; 
+            ctx.fillRect(-50, -50, 900, 600); // Oversized for shake
+            ctx.fillStyle = '#10101a'; ctx.fillRect(0, 420, 800, 80);
+            vinnRef.current.x = 400; vinnRef.current.y = 420;
+            vinnRef.current.draw(ctx, 0);
+        }
+        return;
+    }
     if (gameState === 'INTRO_CUTSCENE') {
         cutsceneRef.current.draw(ctx);
         return;
@@ -266,9 +470,33 @@ function App() {
 
     const currentTheme = (gameState === 'TUTORIAL') ? 'FOREST' : world.theme;
     if (currentTheme === 'FOREST') ctx.fillStyle = '#1a2e1a';
-    else if (currentTheme === 'VOLCANO') ctx.fillStyle = '#2e1a1a';
+    else if (currentTheme === 'VOLCANO') {
+        const grad = ctx.createLinearGradient(0, 0, 0, 500);
+        grad.addColorStop(0, '#2b0a0a');
+        grad.addColorStop(1, '#000');
+        ctx.fillStyle = grad;
+    }
     else ctx.fillStyle = '#1a1a2e';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillRect(-50, -50, 900, 600);
+
+    if (currentTheme === 'VOLCANO') {
+        ctx.fillStyle = '#1a0505';
+        for(let i=0; i<3; i++) {
+            const vx = (i * 400 - camX * 0.2) % 1200;
+            ctx.beginPath();
+            ctx.moveTo(vx - 200, 500);
+            ctx.lineTo(vx, 100);
+            ctx.lineTo(vx + 200, 500);
+            ctx.fill();
+            ctx.fillStyle = '#ff4500';
+            ctx.beginPath();
+            ctx.moveTo(vx - 20, 140);
+            ctx.lineTo(vx, 100);
+            ctx.lineTo(vx + 20, 140);
+            ctx.fill();
+            ctx.fillStyle = '#1a0505';
+        }
+    }
 
     if (gameState === 'TUTORIAL') {
         ctx.fillStyle = 'rgba(255,255,255,0.1)';
@@ -284,11 +512,11 @@ function App() {
         }
     }
     
-    const activePlatforms = (gameState === 'TUTORIAL') ? 
+    const visiblePlatforms = (gameState === 'TUTORIAL') ? 
         [{x: 0, y: 460, w: 800, type: 'NORMAL'}, {x: 850, y: 460, w: 400, type: 'NORMAL'}, {x: 1300, y: 460, w: 300, type: 'NORMAL'}] : 
-        platforms;
+        worldPlatforms;
 
-    activePlatforms.forEach(p => {
+    visiblePlatforms.forEach(p => {
         ctx.save();
         if (p.type === 'MUSHROOM') {
             ctx.fillStyle = '#ff4d4d'; ctx.beginPath(); ctx.ellipse(p.x - camX + p.w/2, p.y + 10, p.w/2, 20, 0, 0, Math.PI * 2); ctx.fill();
@@ -319,6 +547,7 @@ function App() {
     }
 
     vinnRef.current.draw(ctx, camX);
+    if (isTwoPlayer) vinn2Ref.current.draw(ctx, camX);
     if (gameState === 'TUTORIAL') {
         enemiesRef.current.forEach(e => e.draw(ctx, camX));
     }
@@ -343,12 +572,14 @@ function App() {
       ctx.beginPath(); ctx.arc(p.x - camX, p.y, 3, 0, Math.PI * 2); ctx.fill();
       return p.life > 0;
     });
+    
+    ctx.restore();
   });
 
   return (
     <div className="game-container">
       <div className="hud">
-        {gameState !== 'INTRO_CUTSCENE' && (
+        {['PLAYING', 'TUTORIAL', 'GAMEOVER', 'LEVEL_TRANSITION', 'WORLD_COMPLETE', 'GAME_WON'].includes(gameState) && (
         <div className="header">
           <h1 style={{ fontFamily: 'var(--font-retro)', letterSpacing: '4px', color: '#00f2ff' }}>
             VINN'S QUEST {gameState !== 'TUTORIAL' && `- W${currentWorld}-L${currentLevel}`}
@@ -356,14 +587,124 @@ function App() {
           <div className="health-bar">
             <div className="health-fill" style={{ width: `${Math.max(0, (vinnRef.current.health / vinnRef.current.maxHealth) * 100)}%` }}></div>
           </div>
+          {isTwoPlayer && (
+            <div className="health-bar" style={{ marginTop: '5px', borderColor: vinn2Ref.current.color }}>
+                <div className="health-fill" style={{ background: vinn2Ref.current.color, width: `${Math.max(0, (vinn2Ref.current.health / vinn2Ref.current.maxHealth) * 100)}%` }}></div>
+            </div>
+          )}
           <div style={{display: 'flex', gap: '1rem', alignItems: 'center'}}>
-            <p style={{fontFamily: 'var(--font-retro)', fontSize: '10px', marginTop: '5px'}}>HP: {Math.ceil(vinnRef.current.health)}/{vinnRef.current.maxHealth}</p>
+            <p style={{fontFamily: 'var(--font-retro)', fontSize: '10px', marginTop: '5px'}}>
+               P1: {Math.ceil(vinnRef.current.health)}/{vinnRef.current.maxHealth}
+               {isTwoPlayer && ` | P2: ${Math.ceil(vinn2Ref.current.health)}/${vinn2Ref.current.maxHealth}`}
+            </p>
             {vinnRef.current.hasDoubleJump && <span className="key-box" style={{background: '#00f2ff', color: '#000'}}>DOUBLE_JUMP</span>}
           </div>
         </div>
         )}
 
         <div className="center">
+          {gameState === 'START_MENU' && (
+              <div className="menu-overlay">
+                  <div className="menu-background">
+                      <div className="cloud" style={{width: 100, height: 40, top: 50, left: -200, animationDuration: '40s'}}></div>
+                      <div className="cloud" style={{width: 150, height: 60, top: 120, left: -200, animationDuration: '30s', animationDelay: '10s'}}></div>
+                  </div>
+
+                  <div className="play-cluster">
+                      <div className="btn-circle" title={t('SETTINGS')} onClick={() => setGameState('SETTINGS')}><span style={{fontSize: '2rem'}}>⚙</span></div>
+                      <div className="btn-circle btn-play" onClick={() => { musicRef.current.resume(); setGameState('INTRO_CUTSCENE'); }}>
+                          <div className="play-icon"></div>
+                      </div>
+                  </div>
+              </div>
+          )}
+
+          {gameState === 'SETTINGS' && (
+             <div className="menu-overlay level-selector-overlay" style={{background: 'rgba(0,0,0,0.9)'}}>
+                 <div className="selector-content" style={{gap: '1.5rem'}}>
+                     <h2 style={{fontFamily: 'var(--font-retro)', color: '#ffcc00'}}>{t('SETTINGS')}</h2>
+
+                     <div style={{textAlign: 'center'}}>
+                         <p style={{fontSize: '0.9rem', marginBottom: '0.5rem', color: '#00f2ff'}}>{t('QUEST_MODE')}</p>
+                         <div style={{display: 'flex', gap: '1rem'}}>
+                             <button className={`level-btn ${!isTwoPlayer ? '' : 'locked'}`} style={{fontSize: '10px'}} onClick={() => setIsTwoPlayer(false)}>{t('SOLO')}</button>
+                             <button className={`level-btn ${isTwoPlayer ? '' : 'locked'}`} style={{fontSize: '10px'}} onClick={() => setIsTwoPlayer(true)}>{t('DUO')}</button>
+                         </div>
+                     </div>
+                     
+                     <div style={{display: 'flex', gap: '2rem'}}>
+                        <div style={{textAlign: 'center'}}>
+                            <p style={{fontSize: '0.8rem', marginBottom: '0.5rem', color: vinnColor}}>{t('P1_COLOR')}</p>
+                            <input 
+                                type="color" 
+                                value={vinnColor} 
+                                onChange={(e) => setVinnColor(e.target.value)}
+                                style={{width: '60px', height: '40px', border: '2px solid #fff', cursor: 'pointer', background: 'none'}}
+                            />
+                        </div>
+                        {isTwoPlayer && (
+                            <div style={{textAlign: 'center'}}>
+                                <p style={{fontSize: '0.8rem', marginBottom: '0.5rem', color: vinn2Color}}>{t('P2_COLOR')}</p>
+                                <input 
+                                    type="color" 
+                                    value={vinn2Color} 
+                                    onChange={(e) => setVinn2Color(e.target.value)}
+                                    style={{width: '60px', height: '40px', border: '2px solid #fff', cursor: 'pointer', background: 'none'}}
+                                />
+                            </div>
+                        )}
+                     </div>
+
+                     <div style={{textAlign: 'center'}}>
+                         <p style={{fontSize: '0.9rem', marginBottom: '0.5rem', color: '#00f2ff'}}>{t('LANGUAGE')}</p>
+                         <div style={{display: 'flex', gap: '1rem'}}>
+                             <button className={`level-btn ${language === 'en' ? '' : 'locked'}`} onClick={() => setLanguage('en')}>EN</button>
+                             <button className={`level-btn ${language === 'es' ? '' : 'locked'}`} onClick={() => setLanguage('es')}>ES</button>
+                         </div>
+                     </div>
+                     
+                     <button className="back-btn" onClick={() => setGameState('START_MENU')}>{t('BACK')}</button>
+                 </div>
+             </div>
+          )}
+
+          {gameState === 'LEVEL_SELECTOR' && (
+              <div className="menu-overlay level-selector-overlay" style={{background: 'rgba(0,0,0,0.85)'}}>
+                  <div className="selector-content">
+                      <h2 style={{fontFamily: 'var(--font-retro)', color: '#ffcc00', marginBottom: '2rem'}}>SELECT LEVEL</h2>
+                      
+                      {[1, 2, 3].map(w => (
+                          <div key={w} className="world-row">
+                              <h3 style={{fontSize: '0.8rem', color: '#00f2ff', textAlign: 'left', marginBottom: '1rem'}}>
+                                  WORLD {w}: {w === 1 ? 'FOREST' : w === 2 ? 'VOLCANO' : 'PAINT LAND'}
+                              </h3>
+                              <div className="level-grid">
+                                  {[1, 2, 3, 4, 5].map(l => {
+                                      const isUnlocked = w < unlockedProgress.world || (w === unlockedProgress.world && l <= unlockedProgress.level);
+                                      return (
+                                          <button 
+                                              key={l}
+                                              className={`level-btn ${!isUnlocked ? 'locked' : ''}`}
+                                              disabled={!isUnlocked}
+                                              onClick={() => {
+                                                  setCurrentWorld(w);
+                                                  setCurrentLevel(l);
+                                                  loadLevel(w, l);
+                                              }}
+                                          >
+                                              {l === 5 ? 'BOSS' : l}
+                                          </button>
+                                      );
+                                  })}
+                              </div>
+                          </div>
+                      ))}
+                      
+                      <button className="back-btn" onClick={() => setGameState('START_MENU')}>BACK TO MENU</button>
+                  </div>
+              </div>
+          )}
+
           {gameState === 'INTRO_CUTSCENE' && (
               <div style={{ position: 'absolute', top: 20, right: 20, pointerEvents: 'auto' }}>
                   <button onClick={() => { musicRef.current.stop(); setGameState('TUTORIAL'); }}>SKIP CUTSCENE</button>

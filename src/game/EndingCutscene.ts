@@ -11,13 +11,18 @@ export class EndingCutscene {
     dialogueIndex: number = 0;
     portalSize: number = 0;
     portalAngle: number = 0;
+    language: 'en' | 'es' = 'en';
+    isTwoPlayer: boolean = false;
+    p1Color: string = '#00f2ff';
+    p2Color: string = '#ff00ff';
+    dialogues: { speaker: string, text: string }[] = [];
     currentDialogue: { speaker: string, text: string } | null = null;
     hearts: {x: number, y: number, life: number}[] = [];
     isBowing: boolean = false;
     vinnStunned: boolean = false;
     vinnSpeed: number = 0;
     
-    dialogues = [
+    dialogues_en = [
         { speaker: 'Queen', text: 'Vinn! You did it! The Ink Colossus is gone!' },
         { speaker: 'Vinn', text: 'I would cross a thousand worlds to save you, my Queen.' },
         { speaker: 'Queen', text: 'Look, the portal is stabilizing! We can go home!' },
@@ -29,6 +34,62 @@ export class EndingCutscene {
         { speaker: 'Queen', text: 'You deserve a reward, Vinn.' },
         { speaker: 'Queen', text: 'Come over! Have a banquet to celebrate!' }
     ];
+
+    dialogues_es = [
+        { speaker: 'Queen', text: '¡Vinn! ¡Lo lograste! ¡El Coloso de Tinta ha desaparecido!' },
+        { speaker: 'Vinn', text: 'Cruzaría mil mundos para salvaros, mi Reina.' },
+        { speaker: 'Queen', text: '¡Mira, el portal se está estabilizando! ¡Podemos volver a casa!' },
+        { speaker: 'Vinn', text: '¿Juntos? ¿Para siempre?' },
+        { speaker: 'Queen', text: 'Sí, Vinn. Juntos.' },
+        { speaker: 'Queen', text: '¡Estamos de vuelta!' },
+        { speaker: 'Vinn', text: 'El reino está a salvo una vez más.' },
+        { speaker: 'Queen', text: 'Sir Vinn... eres más que un caballero para mí.' },
+        { speaker: 'Queen', text: 'Te mereces una recompensa, Vinn.' },
+        { speaker: 'Queen', text: '¡Ven aquí! ¡Haremos un banquete para celebrar!' }
+    ];
+
+    constructor() {
+        this.setLanguage('en');
+    }
+
+    setLanguage(lang: 'en' | 'es', is2P: boolean = false, c1: string = '#00f2ff', c2: string = '#ff00ff') {
+        this.language = lang;
+        this.isTwoPlayer = is2P;
+        this.p1Color = c1;
+        this.p2Color = c2;
+        
+        const duo_en = [
+            { speaker: 'Queen', text: 'Vinn! Jhon! You did it together!' },
+            { speaker: 'The Duo', text: 'We would cross a thousand worlds to save you, my Queen.' },
+            { speaker: 'Queen', text: 'Look, the portal is stabilizing! We can go home!' },
+            { speaker: 'Vinn', text: 'Together? Forever?' },
+            { speaker: 'Queen', text: 'Yes, Vinn. Together.' },
+            { speaker: 'Queen', text: 'We are back!' },
+            { speaker: 'The Duo', text: 'The kingdom is safe once more.' },
+            { speaker: 'Queen', text: 'Sir Vinn, Sir Zinn... you are legends.' },
+            { speaker: 'Queen', text: 'You both deserve a reward.' },
+            { speaker: 'Queen', text: 'Come over! Have a banquet to celebrate!' }
+        ];
+
+        const duo_es = [
+            { speaker: 'Queen', text: '¡Vinn! ¡Jhon! ¡Lo lograron juntos!' },
+            { speaker: 'El Dúo', text: 'Cruzaríamos mil mundos para salvarte, mi Reina.' },
+            { speaker: 'Queen', text: '¡Mira, el portal se está estabilizando! ¡Volvamos a casa!' },
+            { speaker: 'Vinn', text: '¿Juntos? ¿Para siempre?' },
+            { speaker: 'Queen', text: 'Sí, Vinn. Juntos.' },
+            { speaker: 'Queen', text: '¡Estamos de vuelta!' },
+            { speaker: 'El Dúo', text: 'El reino está a salvo una vez más.' },
+            { speaker: 'Queen', text: 'Sir Vinn, Sir Jhon... son leyendas.' },
+            { speaker: 'Queen', text: 'Ambos merecen una recompensa.' },
+            { speaker: 'Queen', text: '¡Vengan! ¡Hagamos un banquete para celebrar!' }
+        ];
+
+        if (is2P) {
+            this.dialogues = lang === 'en' ? duo_en : duo_es;
+        } else {
+            this.dialogues = lang === 'en' ? this.dialogues_en : this.dialogues_es;
+        }
+    }
 
     update(dt: number): boolean | { speaker: string, text: string } | null {
         this.timer += dt;
@@ -121,7 +182,7 @@ export class EndingCutscene {
         if (this.phase === 'BUT_SCREEN') {
             ctx.fillStyle = '#000'; ctx.fillRect(0, 0, 800, 500);
             ctx.fillStyle = '#ff2d55'; ctx.font = '40px "Press Start 2P"'; ctx.textAlign = 'center';
-            ctx.fillText('BUT...', 400, 250);
+            ctx.fillText(this.language === 'en' ? 'BUT...' : 'PERO...', 400, 250);
         } else if (this.phase === 'BOSS_REGEN' || this.phase === 'BOSS_FUSION' || this.phase === 'FIN_BAIT') {
             this.drawStinger(ctx);
         } else if (!isCastle) {
@@ -144,7 +205,12 @@ export class EndingCutscene {
 
         if (isCastle || (!['BUT_SCREEN','BOSS_REGEN','BOSS_FUSION','FIN_BAIT'].includes(this.phase))) {
             if (this.phase !== 'BANQUET_CALL' || this.queenX < 850) this.drawQueen(ctx, this.queenX, this.queenY);
-            this.drawVinn(ctx, this.vinnX, this.vinnY);
+            
+            this.drawHero(ctx, this.vinnX, this.vinnY, this.p1Color, 'NORMAL');
+            if (this.isTwoPlayer) {
+                this.drawHero(ctx, this.vinnX - 40, this.vinnY, this.p2Color, 'SPIKY');
+            }
+
             if (this.vinnStunned) {
                 ctx.fillStyle = '#fff'; ctx.font = 'bold 40px Arial'; ctx.textAlign = 'center'; ctx.fillText('!', this.vinnX, this.vinnY - 80);
             }
@@ -241,10 +307,16 @@ export class EndingCutscene {
         ctx.fillStyle = '#800080'; ctx.beginPath(); ctx.moveTo(x, y-30); ctx.lineTo(x-20, y+25); ctx.lineTo(x+20, y+25); ctx.fill(); ctx.restore();
     }
 
-    drawVinn(ctx: CanvasRenderingContext2D, x: number, y: number) {
-        ctx.save(); ctx.strokeStyle = '#00f2ff'; ctx.lineWidth = 4;
+    drawHero(ctx: CanvasRenderingContext2D, x: number, y: number, color: string, visual: 'NORMAL' | 'SPIKY') {
+        ctx.save(); ctx.strokeStyle = color; ctx.lineWidth = 4; ctx.shadowBlur = 10; ctx.shadowColor = color;
         if (this.isBowing) { ctx.translate(x, y); ctx.rotate(0.4); ctx.translate(-x, -y); }
+        
         ctx.beginPath(); ctx.arc(x, y - 50, 12, 0, Math.PI * 2); ctx.stroke();
+        
+        if (visual === 'SPIKY') {
+            ctx.beginPath(); ctx.moveTo(x-15, y-60); ctx.lineTo(x-5, y-75); ctx.lineTo(x, y-62); ctx.lineTo(x+5, y-75); ctx.lineTo(x+15, y-60); ctx.stroke();
+        }
+
         ctx.beginPath(); ctx.moveTo(x, y - 38); ctx.lineTo(x, y); ctx.stroke();
         ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x-10, y+30); ctx.stroke();
         ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x+10, y+30); ctx.stroke(); ctx.restore();

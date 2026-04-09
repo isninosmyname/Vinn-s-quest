@@ -11,9 +11,14 @@ export class IntroCutscene {
     dialogueIndex: number = 0;
     portalSize: number = 0;
     portalAngle: number = 0;
+    language: 'en' | 'es' = 'en';
+    isTwoPlayer: boolean = false;
+    p1Color: string = '#00f2ff';
+    p2Color: string = '#ff00ff';
+    dialogues: { speaker: string, text: string }[] = [];
     currentDialogue: { speaker: string, text: string } | null = null;
 
-    dialogues = [
+    dialogues_en = [
         { speaker: 'Vinn', text: 'My Queen, I have returned.' },
         { speaker: 'Vinn', text: 'I bring you this rare Crimson Rose from the Eastern Woods.' },
         { speaker: 'Queen', text: 'It is beautiful, sir Vinn. Your loyalty is unmatched.' },
@@ -29,6 +34,76 @@ export class IntroCutscene {
         { speaker: 'Vinn', text: 'They are gone... but I can still see their dust trail.' },
         { speaker: 'Vinn', text: 'I must follow them. Hold on, my Queen!' }
     ];
+
+    dialogues_es = [
+        { speaker: 'Vinn', text: 'Mi Reina, he vuelto.' },
+        { speaker: 'Vinn', text: 'Le traigo esta rara Rosa Carmesí de los Bosques del Este.' },
+        { speaker: 'Queen', text: 'Es hermosa, Sir Vinn. Tu lealtad no tiene igual.' },
+        { speaker: 'Queen', text: 'Espera... ¿qué es ese ruido?' },
+        { speaker: 'Vinn', text: '¡Un portal! ¡Mi Reina, retroceda!' },
+        { speaker: 'Queen', text: '¡VINN! ¡AYÚDAME!' },
+        { speaker: 'Vinn', text: '¡¡NO!! ¡Iré por ti!' },
+        { speaker: 'Queen', text: 'Ay... ¿dónde estamos?' },
+        { speaker: 'Skelet-Bot', text: 'OBJETIVO ASEGURADO. INICIANDO RECUPERACIÓN.' },
+        { speaker: 'Queen', text: '¡No! ¡Suéltenme! ¡¡VINN!!' },
+        { speaker: 'Vinn', text: 'Uf... mi cabeza...' },
+        { speaker: 'Vinn', text: '¡ESPE... OYE! ¡DETENTE!' },
+        { speaker: 'Vinn', text: 'Se han ido... pero aún puedo ver su rastro de polvo.' },
+        { speaker: 'Vinn', text: 'Debo seguirlos. ¡Resiste, mi Reina!' }
+    ];
+
+    constructor() {
+        this.setLanguage('en');
+    }
+
+    setLanguage(lang: 'en' | 'es', is2P: boolean = false, c1: string = '#00f2ff', c2: string = '#ff00ff') {
+        this.language = lang;
+        this.isTwoPlayer = is2P;
+        this.p1Color = c1;
+        this.p2Color = c2;
+        
+        const duo_en = [
+            { speaker: 'The Duo', text: 'My Queen, we have returned.' },
+            { speaker: 'Vinn', text: 'I bring you this rare Crimson Rose...' },
+            { speaker: 'Jhon', text: '...and I bring this leaf Amulet from the Eastern Woods.' },
+            { speaker: 'Queen', text: 'Stunning! Our kingdom is truly protected by the best.' },
+            { speaker: 'Queen', text: 'Wait... what is that noise?' },
+            { speaker: 'The Duo', text: 'A portal! My Queen, get back!' },
+            { speaker: 'Queen', text: 'HELP ME!' },
+            { speaker: 'The Duo', text: 'NO!! We are coming for you!' },
+            { speaker: 'Queen', text: 'Ouch... where are we?' },
+            { speaker: 'Skelet-Bot', text: 'TARGET SECURED. INITIATING RETRIEVAL.' },
+            { speaker: 'Queen', text: 'No! Let me go!' },
+            { speaker: 'Vinn', text: 'Ugh... my head...' },
+            { speaker: 'Jhon', text: 'Hey! Stop them!' },
+            { speaker: 'The Duo', text: 'They are gone... but we can still see their trail.' },
+            { speaker: 'The Duo', text: 'We must follow them. Hold on, my Queen!' }
+        ];
+
+        const duo_es = [
+            { speaker: 'El Dúo', text: 'Mi Reina, hemos vuelto.' },
+            { speaker: 'Vinn', text: 'Te traemos esta rara Rosa Carmesí...' },
+            { speaker: 'Jhon', text: '...y yo este Amuleto de hojas de los Bosques del Este.' },
+            { speaker: 'Queen', text: '¡Increíble! Nuestro reino está protegido por los mejores.' },
+            { speaker: 'Queen', text: 'Espera... ¿qué es ese ruido?' },
+            { speaker: 'El Dúo', text: '¡Un portal! ¡Mi Reina, atrás!' },
+            { speaker: 'Queen', text: '¡AYÚDENME!' },
+            { speaker: 'El Dúo', text: '¡¡NO!! ¡Iremos por ti!' },
+            { speaker: 'Queen', text: 'Ay... ¿dónde estamos?' },
+            { speaker: 'Skelet-Bot', text: 'OBJETIVO ASEGURADO. INICIANDO RECUPERACIÓN.' },
+            { speaker: 'Queen', text: '¡No! ¡Suéltenme!' },
+            { speaker: 'Vinn', text: 'Uf... mi cabeza...' },
+            { speaker: 'Jhon', text: '¡Oigan! ¡Deténganlos!' },
+            { speaker: 'El Dúo', text: 'Se han ido... pero podemos ver su rastro.' },
+            { speaker: 'El Dúo', text: 'Debemos seguirlos. ¡Resista, mi Reina!' }
+        ];
+
+        if (is2P) {
+            this.dialogues = lang === 'en' ? duo_en : duo_es;
+        } else {
+            this.dialogues = lang === 'en' ? this.dialogues_en : this.dialogues_es;
+        }
+    }
 
     update(dt: number): boolean | { speaker: string, text: string } | null {
         this.timer += dt;
@@ -140,7 +215,10 @@ export class IntroCutscene {
             this.drawQueen(ctx, this.queenX, this.queenY);
         }
         if (this.phase !== 'FINISHED') {
-            this.drawVinn(ctx, this.vinnX, this.vinnY);
+            this.drawHero(ctx, this.vinnX, this.vinnY, this.p1Color, 'NORMAL');
+            if (this.isTwoPlayer) {
+                this.drawHero(ctx, this.vinnX - 40, this.vinnY, this.p2Color, 'SPIKY');
+            }
         }
 
         if (this.phase === 'TECH_KIDNAP' && this.dialogueIndex >= 9) {
@@ -206,11 +284,17 @@ export class IntroCutscene {
         ctx.restore();
     }
 
-    drawVinn(ctx: CanvasRenderingContext2D, x: number, y: number) {
+    drawHero(ctx: CanvasRenderingContext2D, x: number, y: number, color: string, visual: 'NORMAL' | 'SPIKY') {
         ctx.save();
-        ctx.strokeStyle = '#00f2ff'; ctx.lineWidth = 4; ctx.lineCap = 'round'; ctx.shadowBlur = 10; ctx.shadowColor = '#00f2ff';
+        ctx.strokeStyle = color; ctx.lineWidth = 4; ctx.lineCap = 'round'; ctx.shadowBlur = 10; ctx.shadowColor = color;
         const headY = (['WALK_IN', 'FOREST_DROP', 'TECH_KIDNAP', 'VINN_LANDING'].includes(this.phase)) ? y - 50 : y - 35;
+        
         ctx.beginPath(); ctx.arc(x, headY, 12, 0, Math.PI * 2); ctx.stroke();
+        
+        if (visual === 'SPIKY') {
+            ctx.beginPath(); ctx.moveTo(x-15, headY-10); ctx.lineTo(x-5, headY-25); ctx.lineTo(x, headY-12); ctx.lineTo(x+5, headY-25); ctx.lineTo(x+15, headY-10); ctx.stroke();
+        }
+
         ctx.beginPath(); ctx.moveTo(x, headY + 12); ctx.lineTo(x, y); ctx.stroke();
         
         const s = (this.phase === 'WALK_IN') ? Math.sin(this.timer*12)*15 : 0;
@@ -219,14 +303,15 @@ export class IntroCutscene {
 
         if (this.phase === 'WALK_IN') {
             ctx.beginPath(); ctx.moveTo(x, headY + 22); ctx.lineTo(x + 15, headY + 40); ctx.stroke();
-            ctx.beginPath(); ctx.moveTo(x, headY + 22); ctx.lineTo(x - 15, headY + 40); ctx.stroke();
-            this.drawRose(ctx, x + 15, headY + 30);
+            if (visual === 'NORMAL') this.drawRose(ctx, x + 15, headY + 30);
+            else {
+                ctx.fillStyle = '#ffcc00'; ctx.fillRect(x+10, headY+25, 10, 10); // Gift box
+            }
         } else if (this.phase === 'KNEEL_AND_TALK' && this.dialogueIndex < 2) {
             ctx.beginPath(); ctx.moveTo(x, headY + 22); ctx.lineTo(x + 30, headY + 15); ctx.stroke();
-            this.drawRose(ctx, x + 35, headY + 5);
+            if (visual === 'NORMAL') this.drawRose(ctx, x + 35, headY + 5);
         } else if (this.phase === 'PORTAL_OPENS' && this.dialogueIndex < 6) {
              ctx.beginPath(); ctx.moveTo(x, headY + 22); ctx.lineTo(x + 20, y + 30); ctx.stroke();
-             ctx.beginPath(); ctx.moveTo(x, headY + 22); ctx.lineTo(x + 25, y + 30); ctx.stroke();
              ctx.lineWidth = 6; ctx.strokeStyle = '#ffcc00'; ctx.shadowColor = '#ffcc00';
              ctx.beginPath(); ctx.moveTo(x + 22, y + 10); ctx.lineTo(x + 22, y + 40); ctx.stroke();
              ctx.lineWidth = 2; ctx.strokeStyle = '#fff'; ctx.stroke();

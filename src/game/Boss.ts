@@ -21,7 +21,7 @@ export class Boss {
     this.x = x;
     this.y = y;
     this.type = type;
-    this.health = type === 'GOLEM' ? 25 : (type === 'BLAZE_KING' ? 60 : 100);
+    this.health = type === 'GOLEM' ? 80 : (type === 'BLAZE_KING' ? 150 : 300);
     this.maxHealth = this.health;
   }
 
@@ -76,7 +76,7 @@ export class Boss {
   }
 
   takeDamage(amount: number) {
-    if (this.isInvulnerable) return false;
+    if (this.isInvulnerable || this.isHit) return false;
     this.health -= amount;
     this.isHit = true;
     this.hitTimer = 0;
