@@ -112,6 +112,8 @@ function App() {
   const enemiesRef = useRef<Enemy[]>([]);
   const bossRef = useRef<Boss | null>(null);
   const itemsRef = useRef<Item[]>([]);
+  const fireFlamesRef = useRef<{x:number,y:number,vx:number,vy:number,life:number}[]>([]);
+  const bossProjectilesRef = useRef<{type:'FIREBALL'|'LAVA', x:number,y:number,vx:number,vy:number,life:number}[]>([]);
   const cutsceneRef = useRef<IntroCutscene>(new IntroCutscene());
   const endingRef = useRef<EndingCutscene>(new EndingCutscene());
   const musicRef = useRef<MusicManager>(new MusicManager());
@@ -229,14 +231,14 @@ function App() {
       if (currentWorld === 1 && currentLevel === 5 && leadX > 800) minX = 800;
       
       // BOSS VS Trigger
-      if (gameState === 'PLAYING' && currentWorld === 1 && currentLevel === 5 && leadX > 800 && bossRef.current && bossRef.current.type === 'GOLEM' && !bossRef.current.introPlayed) {
+      if (gameState === 'PLAYING' && currentLevel === 5 && leadX > 800 && bossRef.current && !bossRef.current.introPlayed) {
           bossRef.current.introPlayed = true;
           setGameState('BOSS_VS_CUTSCENE');
           
           // Timeout to resume gameplay
           setTimeout(() => {
               setGameState('PLAYING');
-              if (bossRef.current) bossRef.current.state = 'FLY_UP';
+              if (bossRef.current) bossRef.current.state = bossRef.current.type === 'GOLEM' ? 'FLY_UP' : 'WALKING';
           }, 3000);
           return;
       }
@@ -352,6 +354,16 @@ function App() {
         }
       }
 
+      if (gameState === 'PLAYING' && currentLevel === 5 && bossRef.current && !bossRef.current.introPlayed) {
+          bossRef.current.introPlayed = true;
+          setGameState('BOSS_VS_CUTSCENE');
+          setTimeout(() => {
+              setGameState('PLAYING');
+              if (bossRef.current) bossRef.current.state = bossRef.current.type === 'GOLEM' ? 'FLY_UP' : 'WALKING';
+          }, 3000);
+          return;
+      }
+
       const leadX = isTwoPlayer ? Math.max(vinnRef.current.x, vinn2Ref.current.x) : vinnRef.current.x;
       const targetCamX = Math.max(0, Math.min(levelConfig.length - 800, leadX - 400));
       cameraXRef.current += (targetCamX - cameraXRef.current) * 0.1;
@@ -409,6 +421,7 @@ function App() {
       });
 
       if (bossRef.current) {
+          const prevState = bossRef.current.state;
           let bTargetX = vinnRef.current.x;
           if (isTwoPlayer) {
               const d1 = Math.abs(bossRef.current.x - vinnRef.current.x);
@@ -419,6 +432,20 @@ function App() {
               else if (p2A) bTargetX = vinn2Ref.current.x;
           }
           bossRef.current.update(dt, bTargetX);
+          const nextState = bossRef.current.state;
+          if (bossRef.current.type === 'BLAZE_KING' && prevState !== nextState) {
+              if (nextState === 'FIRE_SUMMON') {
+                  const baseY = bossRef.current.y - 80;
+                  fireFlamesRef.current.push(
+                      { x: bossRef.current.x - 30, y: baseY, vx: -2, vy: -2, life: 1 },
+                      { x: bossRef.current.x + 30, y: baseY, vx: 2, vy: -2, life: 1 }
+                  );
+              } else if (nextState === 'FIREBALL') {
+                  bossProjectilesRef.current.push({ type: 'FIREBALL', x: bossRef.current.x, y: bossRef.current.y - 40, vx: bossRef.current.direction * 8, vy: 0, life: 1 });
+              } else if (nextState === 'LAVA_THROW') {
+                  bossProjectilesRef.current.push({ type: 'LAVA', x: bossRef.current.x, y: bossRef.current.y - 40, vx: bossRef.current.direction * 5, vy: -5, life: 1 });
+              }
+          }
           const dx = Math.abs(bossRef.current.x - vinnRef.current.x);
           const dy = Math.abs(bossRef.current.y - vinnRef.current.y);
           const boss = bossRef.current;
@@ -467,7 +494,7 @@ function App() {
         });
         if (bossRef.current && Math.abs(vinnRef.current.x - bossRef.current.x) < 120) {
             if (bossRef.current.type !== 'GOLEM' || bossRef.current.state === 'STUNNED') {
-                const bossHitDamage = bossRef.current.type === 'GOLEM' && bossRef.current.state === 'STUNNED' ? 3 : 1;
+                const bossHitDamage = (bossRef.current.state === 'STUNNED' && (bossRef.current.type === 'GOLEM' || bossRef.current.type === 'BLAZE_KING')) ? 3 : 1;
                 if (bossRef.current.takeDamage(bossHitDamage)) {
                     spawnParticles(bossRef.current.x, bossRef.current.y);
                 }
@@ -484,7 +511,7 @@ function App() {
         });
         if (bossRef.current && Math.abs(vinn2Ref.current.x - bossRef.current.x) < 120) {
             if (bossRef.current.type !== 'GOLEM' || bossRef.current.state === 'STUNNED') {
-                const bossHitDamage = bossRef.current.type === 'GOLEM' && bossRef.current.state === 'STUNNED' ? 3 : 1;
+                const bossHitDamage = (bossRef.current.state === 'STUNNED' && (bossRef.current.type === 'GOLEM' || bossRef.current.type === 'BLAZE_KING')) ? 3 : 1;
                 if (bossRef.current.takeDamage(bossHitDamage)) {
                     spawnParticles(bossRef.current.x, bossRef.current.y);
                 }
@@ -625,6 +652,74 @@ function App() {
             ctx.ellipse(rock.x - camX, 460, 15 * scale, 5 * scale, 0, 0, Math.PI*2);
             ctx.fill();
         }
+    });
+
+    fireFlamesRef.current = fireFlamesRef.current.filter(flame => {
+        const playerTarget = isTwoPlayer
+            ? (Math.abs(vinnRef.current.x - flame.x) < Math.abs(vinn2Ref.current.x - flame.x) ? vinnRef.current : vinn2Ref.current)
+            : vinnRef.current;
+        const dx = playerTarget.x - flame.x;
+        const dy = playerTarget.y - flame.y;
+        const dist = Math.max(1, Math.sqrt(dx * dx + dy * dy));
+        flame.vx += (dx / dist) * 0.15;
+        flame.vy += (dy / dist) * 0.15;
+        flame.x += flame.vx;
+        flame.y += flame.vy;
+        flame.life -= dt * 0.4;
+
+        const hitsPlayer = (p: any) => !p.isHit && Math.abs(p.x - flame.x) < 30 && Math.abs(p.y - flame.y) < 30;
+        if (hitsPlayer(vinnRef.current)) {
+            vinnRef.current.takeDamage(3);
+            flame.life = 0;
+        }
+        if (isTwoPlayer && hitsPlayer(vinn2Ref.current)) {
+            vinn2Ref.current.takeDamage(3);
+            flame.life = 0;
+        }
+
+        ctx.fillStyle = '#ff9a00';
+        ctx.beginPath();
+        ctx.arc(flame.x - camX, flame.y, 12, 0, Math.PI * 2);
+        ctx.fill();
+
+        return flame.life > 0 && flame.y < 560;
+    });
+
+    bossProjectilesRef.current = bossProjectilesRef.current.filter(proj => {
+        proj.x += proj.vx;
+        proj.y += proj.vy;
+        if (proj.type === 'LAVA') proj.vy += 0.3;
+
+        const hitPlayer = (p: any) => !p.isHit && Math.abs(p.x - proj.x) < 30 && Math.abs(p.y - proj.y) < 30;
+        if (hitPlayer(vinnRef.current)) {
+            vinnRef.current.takeDamage(proj.type === 'LAVA' ? 5 : 4);
+            proj.life = 0;
+        }
+        if (isTwoPlayer && hitPlayer(vinn2Ref.current)) {
+            vinn2Ref.current.takeDamage(proj.type === 'LAVA' ? 5 : 4);
+            proj.life = 0;
+        }
+
+        if (proj.type === 'FIREBALL' && bossRef.current && bossRef.current.type === 'BLAZE_KING' && bossRef.current.state === 'FIREBALL') {
+            if (proj.x - camX < 20 || proj.x - camX > 780) {
+                bossRef.current.state = 'STUNNED';
+                bossRef.current.attackTimer = 0;
+                proj.life = 0;
+                spawnParticles(proj.x, proj.y, '#ff8c00');
+            }
+        }
+
+        if (proj.type === 'LAVA' && proj.y > 460) {
+            proj.life = 0;
+            spawnParticles(proj.x, proj.y, '#ff5500');
+        }
+
+        ctx.fillStyle = proj.type === 'FIREBALL' ? '#ffcc00' : '#ff2f00';
+        ctx.beginPath();
+        ctx.arc(proj.x - camX, proj.y, proj.type === 'FIREBALL' ? 18 : 14, 0, Math.PI * 2);
+        ctx.fill();
+
+        return proj.life > 0 && proj.x > camX - 100 && proj.x < camX + 900 && proj.y < 620;
     });
 
     if (currentTheme === 'VOLCANO') {
@@ -817,7 +912,7 @@ function App() {
                  <div style={{ position: 'absolute', right: 0, top: 0, width: '50%', height: '100%', background: 'linear-gradient(-90deg, #2d3e12, transparent)', animation: 'slideLeft 0.5s ease-out forwards', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <div style={{ textAlign: 'center' }}>
                       <div style={{ fontFamily: 'var(--font-retro)', fontSize: '1.8rem', color: '#ffcc00', textShadow: '4px 4px 0 #000', lineHeight: '1.1' }}>THE</div>
-                      <div style={{ fontFamily: 'var(--font-retro)', fontSize: '2.6rem', color: '#ffcc00', textShadow: '4px 4px 0 #000', fontWeight: '700', letterSpacing: '2px' }}>GOLEM</div>
+                      <div style={{ fontFamily: 'var(--font-retro)', fontSize: '2.6rem', color: '#ffcc00', textShadow: '4px 4px 0 #000', fontWeight: '700', letterSpacing: '2px' }}>{bossRef.current?.type === 'BLAZE_KING' ? 'BLAZE KING' : bossRef.current?.type === 'INK_COLOSSUS' ? 'INK COLOSSUS' : 'GOLEM'}</div>
                     </div>
                  </div>
                  <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', animation: 'popIn 0.5s 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275) both', opacity: 0 }}>

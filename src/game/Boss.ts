@@ -82,25 +82,68 @@ export class Boss {
             }
         }
     } else if (this.type === 'BLAZE_KING') {
-        this.x += Math.sin(this.animTimer * 3) * 8;
-        if (Math.abs(dist) < 400) {
-            this.x += (dist > 0 ? 1 : -1) * (this.phase === 2 ? 4 : 2);
+        const lowHealth = this.health < this.maxHealth * 0.35;
+        if (this.state === 'FLY_UP') {
             this.state = 'WALKING';
-        }
-        this.attackTimer += dt;
-        const flareStart = this.phase === 2 ? 0.4 : 0.7;
-        const flareEnd = this.phase === 2 ? 0.6 : 1.0;
-        
-        if (this.attackTimer > flareStart && this.attackTimer < flareEnd) {
-            this.state = 'ATTACKING';
-            this.isInvulnerable = true;
-        } else {
-            this.state = 'WALKING';
-            this.isInvulnerable = false;
+            this.attackTimer = 0;
         }
 
-        if (this.attackTimer > flareEnd) {
-            this.attackTimer = 0;
+        if (this.state === 'WALKING' || this.state === 'IDLE') {
+            this.x += Math.sin(this.animTimer * 3) * 5;
+            if (Math.abs(dist) < 400) {
+                this.x += (dist > 0 ? 1 : -1) * (this.phase === 2 ? 4 : 2);
+            }
+            this.state = 'WALKING';
+            this.attackTimer += dt;
+            const cooldown = lowHealth ? 2.5 : 3.8;
+            if (this.attackTimer > cooldown) {
+                this.attackTimer = 0;
+                this.state = 'FIRE_SUMMON';
+                this.isInvulnerable = true;
+            }
+        } else if (this.state === 'FIRE_SUMMON') {
+            this.isInvulnerable = true;
+            this.attackTimer += dt;
+            if (this.attackTimer > (lowHealth ? 0.6 : 0.8)) {
+                this.attackTimer = 0;
+                this.state = lowHealth ? 'LAVA_THROW' : 'BACKING';
+            }
+        } else if (this.state === 'BACKING') {
+            this.isInvulnerable = true;
+            this.attackTimer += dt;
+            this.x -= this.direction * 3;
+            if (this.attackTimer > 1.2) {
+                this.attackTimer = 0;
+                this.state = 'FIREBALL';
+            }
+        } else if (this.state === 'FIREBALL') {
+            this.isInvulnerable = true;
+            this.attackTimer += dt;
+            if (this.attackTimer > 2.2) {
+                this.attackTimer = 0;
+                this.state = 'STUNNED';
+            }
+        } else if (this.state === 'LAVA_THROW') {
+            this.isInvulnerable = true;
+            this.attackTimer += dt;
+            if (this.attackTimer > 0.9) {
+                this.attackTimer = 0;
+                this.state = 'STUNNED';
+            }
+        } else if (this.state === 'STUNNED') {
+            this.isInvulnerable = false;
+            this.attackTimer += dt;
+            if (this.attackTimer > 4.0) {
+                this.state = 'WAKING';
+                this.attackTimer = 0;
+            }
+        } else if (this.state === 'WAKING') {
+            this.isInvulnerable = true;
+            this.attackTimer += dt;
+            if (this.attackTimer > 1.0) {
+                this.state = 'WALKING';
+                this.attackTimer = 0;
+            }
         }
     } else if (this.type === 'INK_COLOSSUS') {
         this.x += (dist > 0 ? 0.8 : -0.8);
