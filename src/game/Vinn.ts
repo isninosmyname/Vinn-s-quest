@@ -78,7 +78,7 @@ export class Vinn {
     }
   }
 
-  update(dt: number, keys: Record<string, boolean>, maxX: number = 2350, platforms: {x: number, y: number, w: number, h: number, type?: 'MUSHROOM' | 'PAINT' | 'NORMAL'}[] = [], speedMult: number = 1.0) {
+  update(dt: number, keys: Record<string, boolean>, maxX: number = 2350, platforms: {x: number, y: number, w: number, h: number, type?: 'MUSHROOM' | 'PAINT' | 'NORMAL'}[] = [], speedMult: number = 1.0, minX: number = 50) {
     this.animTimer += dt;
     this.currentSpeedScale = speedMult;
 
@@ -180,7 +180,7 @@ export class Vinn {
       }
     }
 
-    if (this.x < 50) this.x = 50;
+    if (this.x < minX) this.x = minX;
     if (this.x > maxX) this.x = maxX;
     
     if (this.y > 600) {

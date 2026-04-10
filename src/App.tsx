@@ -53,10 +53,10 @@ const WORLD_CONFIGS: Record<number, { theme: WorldTheme, levels: any[] }> = {
   3: {
     theme: 'PAINT_LAND',
     levels: [
-      { length: 2400, enemies: [1000, 2000], platforms: [{x: 0, y: 460, w: 800}, {x: 800, y: 400, w: 400, type: 'PAINT'}, {x: 1200, y: 460, w: 1200}], items: [] },
-      { length: 3000, enemies: [800, 2400], platforms: [{x: 0, y: 460, w: 500}, {x: 500, y: 350, w: 200, type: 'PAINT'}, {x: 800, y: 460, w: 500}, {x: 1300, y: 300, w: 300, type: 'PAINT'}, {x: 1700, y: 460, w: 1300}], items: [] },
-      { length: 3600, enemies: [1000, 2000, 3000], platforms: [{x: 0, y: 460, w: 1000}, {x: 1100, y: 300, w: 400, type: 'PAINT'}, {x: 1600, y: 460, w: 2000}], items: [] },
-      { length: 4000, enemies: [1000, 2500], platforms: [{x: 0, y: 460, w: 1500}, {x: 1600, y: 250, w: 800, type: 'PAINT'}, {x: 2500, y: 460, w: 1500}], items: [] },
+      { length: 2400, enemies: [{x: 1000, type: 'NORMAL'}, {x: 2000, type: 'NORMAL'}], platforms: [{x: 0, y: 460, w: 800}, {x: 800, y: 400, w: 400, type: 'PAINT'}, {x: 1200, y: 460, w: 1200}], items: [] },
+      { length: 3000, enemies: [{x: 800, type: 'NORMAL'}, {x: 2400, type: 'NORMAL'}], platforms: [{x: 0, y: 460, w: 500}, {x: 500, y: 350, w: 200, type: 'PAINT'}, {x: 800, y: 460, w: 500}, {x: 1300, y: 300, w: 300, type: 'PAINT'}, {x: 1700, y: 460, w: 1300}], items: [] },
+      { length: 3600, enemies: [{x: 1000, type: 'NORMAL'}, {x: 2000, type: 'NORMAL'}, {x: 3000, type: 'NORMAL'}], platforms: [{x: 0, y: 460, w: 1000}, {x: 1100, y: 300, w: 400, type: 'PAINT'}, {x: 1600, y: 460, w: 2000}], items: [] },
+      { length: 4000, enemies: [{x: 1000, type: 'NORMAL'}, {x: 2500, type: 'NORMAL'}], platforms: [{x: 0, y: 460, w: 1500}, {x: 1600, y: 250, w: 800, type: 'PAINT'}, {x: 2500, y: 460, w: 1500}], items: [] },
       { length: 1600, enemies: [], platforms: [{x: 0, y: 460, w: 1600}], isBoss: true, bossType: 'INK_COLOSSUS' }
     ]
   }
@@ -65,7 +65,7 @@ const WORLD_CONFIGS: Record<number, { theme: WorldTheme, levels: any[] }> = {
 function App() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [tutorialPhase, setTutorialPhase] = useState(0);
-  const [gameState, setGameState] = useState<'START_MENU' | 'SETTINGS' | 'LEVEL_SELECTOR' | 'INTRO_CUTSCENE' | 'TUTORIAL' | 'PLAYING' | 'GAMEOVER' | 'LEVEL_TRANSITION' | 'WORLD_COMPLETE' | 'ENDING_CUTSCENE' | 'GAME_WON'>('START_MENU');
+  const [gameState, setGameState] = useState<'START_MENU' | 'SETTINGS' | 'LEVEL_SELECTOR' | 'INTRO_CUTSCENE' | 'TUTORIAL' | 'PLAYING' | 'BOSS_VS_CUTSCENE' | 'GAMEOVER' | 'LEVEL_TRANSITION' | 'WORLD_COMPLETE' | 'ENDING_CUTSCENE' | 'GAME_WON'>('START_MENU');
   const [language, setLanguage] = useState<'en' | 'es'>(() => (localStorage.getItem('vinns_quest_lang') as 'en' | 'es') || 'en');
   const [vinnColor, setVinnColor] = useState(() => localStorage.getItem('vinns_quest_color') || '#00f2ff');
   const [vinn2Color, setVinn2Color] = useState(() => localStorage.getItem('vinns_quest_color2') || '#ff00ff');
@@ -118,6 +118,7 @@ function App() {
   const cameraXRef = useRef(0);
   const cameraShakeRef = useRef(0);
   const particlesRef = useRef<{x: number, y: number, vx: number, vy: number, life: number, color?: string}[]>([]);
+  const rocksRef = useRef<{x: number, y: number, vy: number}[]>([]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -143,10 +144,6 @@ function App() {
     const handleKeyUp = (e: KeyboardEvent) => setKeys(prev => ({ ...prev, [e.key.toLowerCase()]: false }));
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('keyup', handleKeyUp);
-    };
     if (gameState === 'WORLD_COMPLETE') {
         const nextWorld = currentWorld + 1;
         setUnlockedProgress(prev => {
@@ -154,6 +151,11 @@ function App() {
             return prev;
         });
     }
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
   }, [gameState]);
 
   const loadLevel = (worldIndex: number, levelIndex: number) => {
@@ -173,7 +175,8 @@ function App() {
     vinnRef.current.health = vinnRef.current.maxHealth;
     cameraXRef.current = 0;
     enemiesRef.current = config.enemies.map((e: any) => new Enemy(e.x, 420, e.type));
-    itemsRef.current = (config.items || []).map(i => ({ ...i }));
+    const configItems = (config.items || []) as Item[];
+    itemsRef.current = configItems.map((i: Item) => ({ ...i }));
     
     if (config.isBoss) {
         bossRef.current = new Boss(1200, 460, config.bossType as BossType);
@@ -221,15 +224,32 @@ function App() {
       const activePlatforms = gameState === 'TUTORIAL' ? tutorialPlatforms : worldPlatforms;
       const activeLength = gameState === 'TUTORIAL' ? 1600 : levelConfig.length;
 
+      const leadX = isTwoPlayer ? Math.max(vinnRef.current.x, vinn2Ref.current.x) : vinnRef.current.x;
+      let minX = 50;
+      if (currentWorld === 1 && currentLevel === 5 && leadX > 800) minX = 800;
+      
+      // BOSS VS Trigger
+      if (gameState === 'PLAYING' && currentWorld === 1 && currentLevel === 5 && leadX > 800 && bossRef.current && bossRef.current.type === 'GOLEM' && !bossRef.current.introPlayed) {
+          bossRef.current.introPlayed = true;
+          setGameState('BOSS_VS_CUTSCENE');
+          
+          // Timeout to resume gameplay
+          setTimeout(() => {
+              setGameState('PLAYING');
+              if (bossRef.current) bossRef.current.state = 'FLY_UP';
+          }, 3000);
+          return;
+      }
+
       // P1 Update
-      vinnRef.current.update(dt, keys, activeLength - 50, activePlatforms, gameState === 'TUTORIAL' ? 0.7 : 1.0);
+      vinnRef.current.update(dt, keys, activeLength - 50, activePlatforms, gameState === 'TUTORIAL' ? 0.7 : 1.0, minX);
       
       // P2 Update
       if (isTwoPlayer) {
           const p2Keys = {
               'a': keys['arrowleft'], 'd': keys['arrowright'], ' ': keys['enter']
           };
-          vinn2Ref.current.update(dt, p2Keys, activeLength - 50, activePlatforms, 1.0);
+          vinn2Ref.current.update(dt, p2Keys, activeLength - 50, activePlatforms, 1.0, minX);
 
           // Revive Logic
           if (vinnRef.current.health > 0 && vinn2Ref.current.health <= 0) {
@@ -335,6 +355,33 @@ function App() {
       const leadX = isTwoPlayer ? Math.max(vinnRef.current.x, vinn2Ref.current.x) : vinnRef.current.x;
       const targetCamX = Math.max(0, Math.min(levelConfig.length - 800, leadX - 400));
       cameraXRef.current += (targetCamX - cameraXRef.current) * 0.1;
+      
+      // Render Rocks (Golem)
+      rocksRef.current = rocksRef.current.filter(rock => {
+          rock.y += rock.vy;
+          rock.vy += 0.5;
+
+          const rockHitsPlayer = (p: {x: number, y: number, isHit: boolean, takeDamage: Function}) => {
+              return !p.isHit && Math.abs(rock.x - p.x) < 25 && Math.abs(rock.y - p.y) < 30;
+          };
+
+          if (rockHitsPlayer(vinnRef.current)) vinnRef.current.takeDamage(2);
+          if (isTwoPlayer && rockHitsPlayer(vinn2Ref.current)) vinn2Ref.current.takeDamage(2);
+
+          return rock.y <= 600;
+      });
+
+      if (bossRef.current && bossRef.current.type === 'GOLEM' && ['FLY_UP', 'RAINING'].includes(bossRef.current.state)) {
+          const spawnChance = bossRef.current.state === 'FLY_UP' ? 0.04 : 0.08;
+          if (Math.random() < spawnChance) {
+              const leadPlayerX = isTwoPlayer ? Math.max(vinnRef.current.x, vinn2Ref.current.x) : vinnRef.current.x;
+              const preferPlayer = Math.random() < 0.55;
+              const spawnX = preferPlayer
+                ? Math.min(Math.max(leadPlayerX + (Math.random() * 240 - 120), cameraXRef.current + 100), cameraXRef.current + 700)
+                : cameraXRef.current + Math.random() * 900 - 50;
+              rocksRef.current.push({ x: spawnX, y: -50, vy: Math.random() * 3 + 2 });
+          }
+      }
 
       enemiesRef.current.forEach(enemy => {
         let targetX = vinnRef.current.x;
@@ -374,21 +421,38 @@ function App() {
           bossRef.current.update(dt, bTargetX);
           const dx = Math.abs(bossRef.current.x - vinnRef.current.x);
           const dy = Math.abs(bossRef.current.y - vinnRef.current.y);
-          if (bossRef.current.health > 0 && dx < 100 && dy < 100) {
-              if (bossRef.current.state === 'ATTACKING' && bossRef.current.attackTimer > 0.8 && bossRef.current.attackTimer < 1.0) {
-                  const dir = vinnRef.current.x > bossRef.current.x ? 1 : -1;
-                  vinnRef.current.takeDamage(2, dir, 12);
-                  cameraShakeRef.current = 15;
+          const boss = bossRef.current;
+
+          if (boss.health > 0 && dx < 100 && dy < 100) {
+              const isAttacking = boss.state === 'ATTACKING';
+              const isPlummeting = boss.state === 'FALLING';
+              const attackActive = boss.type === 'GOLEM' ? isPlummeting : 
+                                  (boss.type === 'BLAZE_KING' ? isAttacking : true);
+              const isStunned = boss.state === 'STUNNED' || boss.state === 'WAKING';
+
+              if (!isStunned && (attackActive || dx < 60)) {
+                  const dir = vinnRef.current.x > boss.x ? 1 : -1;
+                  const damage = boss.type === 'BLAZE_KING' && isAttacking ? 4 : (isPlummeting ? 5 : 2);
+                  vinnRef.current.takeDamage(damage, dir, isPlummeting ? 20 : 12);
+                  cameraShakeRef.current = boss.type === 'INK_COLOSSUS' ? 5 : 15;
               }
           }
-          if (isTwoPlayer && bossRef.current.health > 0) {
-              const dx2 = Math.abs(bossRef.current.x - vinn2Ref.current.x);
-              const dy2 = Math.abs(bossRef.current.y - vinn2Ref.current.y);
+
+          if (isTwoPlayer && boss.health > 0) {
+              const dx2 = Math.abs(boss.x - vinn2Ref.current.x);
+              const dy2 = Math.abs(boss.y - vinn2Ref.current.y);
               if (dx2 < 100 && dy2 < 100) {
-                if (bossRef.current.state === 'ATTACKING' && bossRef.current.attackTimer > 0.8 && bossRef.current.attackTimer < 1.0) {
-                    const dir = vinn2Ref.current.x > bossRef.current.x ? 1 : -1;
-                    vinn2Ref.current.takeDamage(2, dir, 12);
-                    cameraShakeRef.current = 15;
+                const isAttacking = boss.state === 'ATTACKING';
+                const isPlummeting = boss.state === 'FALLING';
+                const attackActive = boss.type === 'GOLEM' ? isPlummeting : 
+                                    (boss.type === 'BLAZE_KING' ? isAttacking : true);
+                const isStunned = boss.state === 'STUNNED' || boss.state === 'WAKING';
+
+                if (!isStunned && (attackActive || dx2 < 60)) {
+                    const dir = vinn2Ref.current.x > boss.x ? 1 : -1;
+                    const damage = boss.type === 'BLAZE_KING' && isAttacking ? 4 : (isPlummeting ? 5 : 2);
+                    vinn2Ref.current.takeDamage(damage, dir, isPlummeting ? 20 : 12);
+                    cameraShakeRef.current = boss.type === 'INK_COLOSSUS' ? 5 : 15;
                 }
               }
           }
@@ -402,8 +466,11 @@ function App() {
           }
         });
         if (bossRef.current && Math.abs(vinnRef.current.x - bossRef.current.x) < 120) {
-            if (bossRef.current.takeDamage(1)) {
-                spawnParticles(bossRef.current.x, bossRef.current.y);
+            if (bossRef.current.type !== 'GOLEM' || bossRef.current.state === 'STUNNED') {
+                const bossHitDamage = bossRef.current.type === 'GOLEM' && bossRef.current.state === 'STUNNED' ? 3 : 1;
+                if (bossRef.current.takeDamage(bossHitDamage)) {
+                    spawnParticles(bossRef.current.x, bossRef.current.y);
+                }
             }
         }
       }
@@ -416,8 +483,11 @@ function App() {
           }
         });
         if (bossRef.current && Math.abs(vinn2Ref.current.x - bossRef.current.x) < 120) {
-            if (bossRef.current.takeDamage(1)) {
-                spawnParticles(bossRef.current.x, bossRef.current.y);
+            if (bossRef.current.type !== 'GOLEM' || bossRef.current.state === 'STUNNED') {
+                const bossHitDamage = bossRef.current.type === 'GOLEM' && bossRef.current.state === 'STUNNED' ? 3 : 1;
+                if (bossRef.current.takeDamage(bossHitDamage)) {
+                    spawnParticles(bossRef.current.x, bossRef.current.y);
+                }
             }
         }
       }
@@ -516,7 +586,7 @@ function App() {
         [{x: 0, y: 460, w: 800, type: 'NORMAL'}, {x: 850, y: 460, w: 400, type: 'NORMAL'}, {x: 1300, y: 460, w: 300, type: 'NORMAL'}] : 
         worldPlatforms;
 
-    visiblePlatforms.forEach(p => {
+    visiblePlatforms.forEach((p: Platform) => {
         ctx.save();
         if (p.type === 'MUSHROOM') {
             ctx.fillStyle = '#ff4d4d'; ctx.beginPath(); ctx.ellipse(p.x - camX + p.w/2, p.y + 10, p.w/2, 20, 0, 0, Math.PI * 2); ctx.fill();
@@ -539,6 +609,21 @@ function App() {
             const hover = Math.sin(Date.now()/200) * 10;
             ctx.beginPath(); ctx.arc(item.x - camX, item.y + hover, 8, 0, Math.PI*2); ctx.fill();
             ctx.restore();
+        }
+    });
+
+    rocksRef.current.forEach(rock => {
+        ctx.fillStyle = '#444';
+        ctx.beginPath();
+        ctx.arc(rock.x - camX, rock.y, 15, 0, Math.PI*2);
+        ctx.fill();
+
+        ctx.fillStyle = 'rgba(0,0,0,0.5)';
+        if (rock.y < 460) {
+            const scale = Math.max(0, rock.y / 460);
+            ctx.beginPath();
+            ctx.ellipse(rock.x - camX, 460, 15 * scale, 5 * scale, 0, 0, Math.PI*2);
+            ctx.fill();
         }
     });
 
@@ -706,10 +791,46 @@ function App() {
           )}
 
           {gameState === 'INTRO_CUTSCENE' && (
-              <div style={{ position: 'absolute', top: 20, right: 20, pointerEvents: 'auto' }}>
-                  <button onClick={() => { musicRef.current.stop(); setGameState('TUTORIAL'); }}>SKIP CUTSCENE</button>
+              <div style={{ position: 'absolute', top: 20, right: 20, pointerEvents: 'auto', zIndex: 9999 }}>
+                  <button 
+                    style={{ pointerEvents: 'auto', cursor: 'pointer' }}
+                    onClick={(e) => { 
+                      e.stopPropagation();
+                      musicRef.current.stop(); 
+                      setGameState('TUTORIAL'); 
+                    }}
+                  >
+                    SKIP CUTSCENE
+                  </button>
               </div>
           )}
+          
+          {gameState === 'BOSS_VS_CUTSCENE' && (
+              <div style={{ position: 'absolute', top: 0, left: 0, width: '800px', height: '500px', pointerEvents: 'none', overflow: 'hidden', zIndex: 100 }}>
+                 <div style={{ position: 'absolute', left: 0, top: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.65)' }}></div>
+                 <div style={{ position: 'absolute', left: 0, top: 0, width: '50%', height: '100%', background: 'linear-gradient(90deg, #004488, transparent)', animation: 'slideRight 0.5s ease-out forwards', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <div style={{ textAlign: 'center' }}>
+                      <div style={{ fontFamily: 'var(--font-retro)', fontSize: '1.8rem', color: '#00f2ff', textShadow: '4px 4px 0 #000', lineHeight: '1.1' }}>VINN THE</div>
+                      <div style={{ fontFamily: 'var(--font-retro)', fontSize: '2.6rem', color: '#00f2ff', textShadow: '4px 4px 0 #000', fontWeight: '700', letterSpacing: '2px' }}>KNIGHT</div>
+                    </div>
+                 </div>
+                 <div style={{ position: 'absolute', right: 0, top: 0, width: '50%', height: '100%', background: 'linear-gradient(-90deg, #2d3e12, transparent)', animation: 'slideLeft 0.5s ease-out forwards', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <div style={{ textAlign: 'center' }}>
+                      <div style={{ fontFamily: 'var(--font-retro)', fontSize: '1.8rem', color: '#ffcc00', textShadow: '4px 4px 0 #000', lineHeight: '1.1' }}>THE</div>
+                      <div style={{ fontFamily: 'var(--font-retro)', fontSize: '2.6rem', color: '#ffcc00', textShadow: '4px 4px 0 #000', fontWeight: '700', letterSpacing: '2px' }}>GOLEM</div>
+                    </div>
+                 </div>
+                 <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', animation: 'popIn 0.5s 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275) both', opacity: 0 }}>
+                    <h2 style={{ fontFamily: 'var(--font-retro)', fontSize: '4rem', color: '#ff2d55', textShadow: '6px 6px 0 #000, 0 0 20px #ff2d55', fontStyle: 'italic', letterSpacing: '-5px' }}>VS</h2>
+                 </div>
+                 <style dangerouslySetInnerHTML={{__html: `
+                    @keyframes slideRight { from { transform: translateX(-100%); } to { transform: translateX(0); } }
+                    @keyframes slideLeft { from { transform: translateX(100%); } to { transform: translateX(0); } }
+                    @keyframes popIn { from { transform: translate(-50%, -50%) scale(0); opacity: 0; } to { transform: translate(-50%, -50%) scale(1) rotate(-10deg); opacity: 1; } }
+                 `}} />
+              </div>
+          )}
+
           {gameState === 'TUTORIAL' && (
             <div className="tutorial-card">
               {tutorialPhase === 0 && <div><h2>Chapter 0: The Pursuit</h2><p>Vinn has landed! Walk with [A/D].</p></div>}

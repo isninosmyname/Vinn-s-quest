@@ -1,5 +1,3 @@
-import type { GameState } from './Vinn';
-
 export type BossType = 'GOLEM' | 'BLAZE_KING' | 'INK_COLOSSUS';
 
 export class Boss {
@@ -8,7 +6,8 @@ export class Boss {
   health: number;
   maxHealth: number;
   type: BossType;
-  state: GameState = 'IDLE';
+  state: string = 'IDLE';
+  introPlayed: boolean = false;
   animTimer: number = 0;
   isHit: boolean = false;
   hitTimer: number = 0;
@@ -42,17 +41,45 @@ export class Boss {
     this.isInvulnerable = false;
     
     if (this.type === 'GOLEM') {
-        const attackReset = this.phase === 2 ? 1.5 : 2.0;
-        if (Math.abs(dist) > 130) {
-            this.x += (dist > 0 ? 1 : -1) * (this.phase === 2 ? 1.5 : 1.0);
-            this.state = 'WALKING';
-        } else {
-            this.state = 'ATTACKING';
-            this.attackTimer += dt;
-            if (this.attackTimer > 0.4 && this.attackTimer < 0.7) {
-                this.isInvulnerable = true;
+        if (this.state === 'IDLE') {
+            this.isInvulnerable = true;
+        } else if (this.state === 'FLY_UP') {
+            this.isInvulnerable = true;
+            this.y -= 15;
+            if (this.y < -300) {
+                this.state = 'RAINING';
+                this.attackTimer = 0;
             }
-            if (this.attackTimer > attackReset) this.attackTimer = 0;
+        } else if (this.state === 'RAINING') {
+            this.isInvulnerable = true;
+            this.attackTimer += dt;
+            if (this.attackTimer > 4.0) {
+                this.state = 'FALLING';
+                this.x = playerX;
+                this.y = -200;
+                this.attackTimer = 0;
+            }
+        } else if (this.state === 'FALLING') {
+            this.isInvulnerable = true;
+            this.y += 25;
+            if (this.y >= 460) {
+                this.y = 460;
+                this.state = 'STUNNED';
+                this.attackTimer = 0;
+            }
+        } else if (this.state === 'STUNNED') {
+            this.isInvulnerable = false;
+            this.attackTimer += dt;
+            if (this.attackTimer > 4.0) {
+                this.state = 'WAKING';
+                this.attackTimer = 0;
+            }
+        } else if (this.state === 'WAKING') {
+            this.isInvulnerable = true;
+            this.attackTimer += dt;
+            if (this.attackTimer > 1.0) {
+                this.state = 'FLY_UP';
+            }
         }
     } else if (this.type === 'BLAZE_KING') {
         this.x += Math.sin(this.animTimer * 3) * 8;
@@ -61,9 +88,19 @@ export class Boss {
             this.state = 'WALKING';
         }
         this.attackTimer += dt;
-        if (this.attackTimer > (this.phase === 2 ? 0.6 : 1.0)) {
+        const flareStart = this.phase === 2 ? 0.4 : 0.7;
+        const flareEnd = this.phase === 2 ? 0.6 : 1.0;
+        
+        if (this.attackTimer > flareStart && this.attackTimer < flareEnd) {
+            this.state = 'ATTACKING';
+            this.isInvulnerable = true;
+        } else {
+            this.state = 'WALKING';
+            this.isInvulnerable = false;
+        }
+
+        if (this.attackTimer > flareEnd) {
             this.attackTimer = 0;
-            this.isInvulnerable = true; 
         }
     } else if (this.type === 'INK_COLOSSUS') {
         this.x += (dist > 0 ? 0.8 : -0.8);
@@ -106,7 +143,7 @@ export class Boss {
       ctx.arc(relX + 15, this.y - 135 + bounce, 5, 0, Math.PI*2);
       ctx.fill();
 
-      if (state === 'ATTACKING') {
+      if (state === 'ATTACKING' || state === 'WAKING') {
           const swipeAngle = (attackTimer < 0.8) ? -0.5 : (attackTimer - 0.8) * 4;
           ctx.strokeStyle = isInvulnerable ? '#fff' : '#ffcc00';
           ctx.lineWidth = 12;
