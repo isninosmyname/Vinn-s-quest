@@ -112,7 +112,7 @@ function App() {
   const enemiesRef = useRef<Enemy[]>([]);
   const bossRef = useRef<Boss | null>(null);
   const itemsRef = useRef<Item[]>([]);
-  const fireFlamesRef = useRef<{x:number,y:number,vx:number,vy:number,life:number}[]>([]);
+  const fireFlamesRef = useRef<{type:'FLAME', x:number,y:number,vx:number,vy:number,life:number}[]>([]);
   const bossProjectilesRef = useRef<{type:'FIREBALL'|'LAVA', x:number,y:number,vx:number,vy:number,life:number}[]>([]);
   const cutsceneRef = useRef<IntroCutscene>(new IntroCutscene());
   const endingRef = useRef<EndingCutscene>(new EndingCutscene());
@@ -269,16 +269,7 @@ function App() {
       if (vinnRef.current.y > 550 && world.theme === 'VOLCANO') vinnRef.current.health = 0;
       if (isTwoPlayer && vinn2Ref.current.y > 550 && world.theme === 'VOLCANO') vinn2Ref.current.health = 0;
 
-      // Geyser Collision
-      particlesRef.current.forEach(p => {
-          if (p.color === '#ff4500' && !vinnRef.current.isHit) {
-              const dx = vinnRef.current.x - p.x;
-              const dy = vinnRef.current.y - p.y;
-              if (Math.abs(dx) < 30 && Math.abs(dy) < 50) {
-                  vinnRef.current.takeDamage(5);
-              }
-          }
-      });
+
 
       if (!anyAlive && gameState === 'PLAYING') {
         setGameState('GAMEOVER');
@@ -437,8 +428,8 @@ function App() {
               if (nextState === 'FIRE_SUMMON') {
                   const baseY = bossRef.current.y - 80;
                   fireFlamesRef.current.push(
-                      { x: bossRef.current.x - 30, y: baseY, vx: -2, vy: -2, life: 1 },
-                      { x: bossRef.current.x + 30, y: baseY, vx: 2, vy: -2, life: 1 }
+                      { type: 'FLAME', x: bossRef.current.x - 30, y: baseY, vx: -2, vy: -2, life: 1 },
+                      { type: 'FLAME', x: bossRef.current.x + 30, y: baseY, vx: 2, vy: -2, life: 1 }
                   );
               } else if (nextState === 'FIREBALL') {
                   bossProjectilesRef.current.push({ type: 'FIREBALL', x: bossRef.current.x, y: bossRef.current.y - 40, vx: bossRef.current.direction * 8, vy: 0, life: 1 });
@@ -669,11 +660,9 @@ function App() {
 
         const hitsPlayer = (p: any) => !p.isHit && Math.abs(p.x - flame.x) < 30 && Math.abs(p.y - flame.y) < 30;
         if (hitsPlayer(vinnRef.current)) {
-            vinnRef.current.takeDamage(3);
             flame.life = 0;
         }
         if (isTwoPlayer && hitsPlayer(vinn2Ref.current)) {
-            vinn2Ref.current.takeDamage(3);
             flame.life = 0;
         }
 
@@ -691,13 +680,22 @@ function App() {
         if (proj.type === 'LAVA') proj.vy += 0.3;
 
         const hitPlayer = (p: any) => !p.isHit && Math.abs(p.x - proj.x) < 30 && Math.abs(p.y - proj.y) < 30;
-        if (hitPlayer(vinnRef.current)) {
-            vinnRef.current.takeDamage(proj.type === 'LAVA' ? 5 : 4);
-            proj.life = 0;
-        }
-        if (isTwoPlayer && hitPlayer(vinn2Ref.current)) {
-            vinn2Ref.current.takeDamage(proj.type === 'LAVA' ? 5 : 4);
-            proj.life = 0;
+        if (proj.type === 'LAVA') {
+            if (hitPlayer(vinnRef.current)) {
+                vinnRef.current.takeDamage(5);
+                proj.life = 0;
+            }
+            if (isTwoPlayer && hitPlayer(vinn2Ref.current)) {
+                vinn2Ref.current.takeDamage(5);
+                proj.life = 0;
+            }
+        } else {
+            if (hitPlayer(vinnRef.current)) {
+                proj.life = 0;
+            }
+            if (isTwoPlayer && hitPlayer(vinn2Ref.current)) {
+                proj.life = 0;
+            }
         }
 
         if (proj.type === 'FIREBALL' && bossRef.current && bossRef.current.type === 'BLAZE_KING' && bossRef.current.state === 'FIREBALL') {
@@ -714,10 +712,22 @@ function App() {
             spawnParticles(proj.x, proj.y, '#ff5500');
         }
 
-        ctx.fillStyle = proj.type === 'FIREBALL' ? '#ffcc00' : '#ff2f00';
-        ctx.beginPath();
-        ctx.arc(proj.x - camX, proj.y, proj.type === 'FIREBALL' ? 18 : 14, 0, Math.PI * 2);
-        ctx.fill();
+        if (proj.type === 'FIREBALL') {
+            ctx.shadowBlur = 20;
+            ctx.shadowColor = '#ffda75';
+            ctx.fillStyle = '#ffcc00';
+            ctx.beginPath();
+            ctx.arc(proj.x - camX, proj.y, 14, 0, Math.PI * 2);
+            ctx.fill();
+        } else {
+            ctx.shadowBlur = 30;
+            ctx.shadowColor = '#ff4500';
+            ctx.fillStyle = '#ff2f00';
+            ctx.beginPath();
+            ctx.arc(proj.x - camX, proj.y, 18, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        ctx.shadowBlur = 0;
 
         return proj.life > 0 && proj.x > camX - 100 && proj.x < camX + 900 && proj.y < 620;
     });

@@ -15,6 +15,7 @@ export class Boss {
   phase: number = 1;
   isInvulnerable: boolean = false;
   direction: number = -1;
+  fireballDirection: number = 0;
 
   constructor(x: number, y: number, type: BossType) {
     this.x = x;
@@ -53,7 +54,7 @@ export class Boss {
         } else if (this.state === 'RAINING') {
             this.isInvulnerable = true;
             this.attackTimer += dt;
-            if (this.attackTimer > 4.0) {
+            if (this.attackTimer > 2.5) {
                 this.state = 'FALLING';
                 this.x = playerX;
                 this.y = -200;
@@ -61,7 +62,7 @@ export class Boss {
             }
         } else if (this.state === 'FALLING') {
             this.isInvulnerable = true;
-            this.y += 25;
+            this.y += 18;
             if (this.y >= 460) {
                 this.y = 460;
                 this.state = 'STUNNED';
@@ -114,11 +115,13 @@ export class Boss {
             this.x -= this.direction * 3;
             if (this.attackTimer > 1.2) {
                 this.attackTimer = 0;
+                this.fireballDirection = dist > 0 ? 1 : -1;
                 this.state = 'FIREBALL';
             }
         } else if (this.state === 'FIREBALL') {
             this.isInvulnerable = true;
             this.attackTimer += dt;
+            this.x += this.fireballDirection * (this.phase === 2 ? 4 : 2);
             if (this.attackTimer > 2.2) {
                 this.attackTimer = 0;
                 this.state = 'STUNNED';

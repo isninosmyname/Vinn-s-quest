@@ -101,46 +101,51 @@ export class Vinn {
 
     const gravity = this.isSinking ? 0.1 : 0.5;
     this.vy += gravity;
+    const prevY = this.y;
+    this.y += this.vy;
     
+    this.onGround = false;
+    platforms.forEach(p => {
+      const platformLeft = p.x;
+      const platformRight = p.x + p.w;
+      const bottom = this.y + this.limbLength;
+      const prevBottom = prevY + this.limbLength;
+      const isAbovePlatform = this.x >= platformLeft && this.x <= platformRight;
+
+      if (!isAbovePlatform) return;
+
+      if (p.type === 'PAINT') {
+          if (bottom >= p.y && prevBottom <= p.y + p.h) {
+              this.isSinking = true;
+              this.state = 'SINKING';
+          }
+      } else if (p.type === 'MUSHROOM') {
+          if (this.vy > 0 && prevBottom <= p.y + 5 && bottom >= p.y - 5) {
+              this.y = p.y - this.limbLength;
+              this.vy = -18;
+              this.onGround = false;
+              this.state = 'JUMPING';
+          }
+      } else {
+          if (this.vy > 0 && prevBottom <= p.y && bottom >= p.y) {
+              this.y = p.y - this.limbLength;
+              this.vy = 0;
+              this.onGround = true;
+              this.lastSafeX = this.x;
+              this.lastSafeY = this.y;
+          }
+      }
+    });
+
     if (this.isSinking) {
         this.vy = Math.min(this.vy, 1);
-        this.y += this.vy;
         this.vx *= 0.5;
         this.sinkTimer += dt;
         if (this.sinkTimer > 2) {
             this.takeDamage(5);
             this.sinkTimer = 0;
         }
-    } else {
-        this.y += this.vy;
     }
-    
-    this.onGround = false; 
-    platforms.forEach(p => {
-      if (this.x > p.x && this.x < p.x + p.w) {
-        if (p.type === 'PAINT') {
-            if (this.y >= p.y && this.y <= p.y + p.h) {
-                this.isSinking = true;
-                this.state = 'SINKING';
-            }
-        } else if (p.type === 'MUSHROOM') {
-            if (this.vy > 0 && this.y + this.limbLength >= p.y - 10 && this.y + this.limbLength <= p.y + 10) {
-                this.y = p.y - this.limbLength;
-                this.vy = -18;
-                this.onGround = false;
-                this.state = 'JUMPING';
-            }
-        } else {
-            if (this.vy > 0 && this.y + this.limbLength >= p.y && this.y + this.limbLength <= p.y + 10) {
-                this.y = p.y - this.limbLength;
-                this.vy = 0;
-                this.onGround = true;
-                this.lastSafeX = this.x;
-                this.lastSafeY = this.y;
-            }
-        }
-      }
-    });
 
     if (this.state === 'ATTACKING') {
       this.attackTimer += dt;
