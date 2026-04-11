@@ -105,9 +105,9 @@ export class Boss {
         } else if (this.state === 'FIRE_SUMMON') {
             this.isInvulnerable = true;
             this.attackTimer += dt;
-            if (this.attackTimer > (lowHealth ? 0.6 : 0.8)) {
+            if (this.attackTimer > 0.8) {
                 this.attackTimer = 0;
-                this.state = lowHealth ? 'LAVA_THROW' : 'BACKING';
+                this.state = 'BACKING';
             }
         } else if (this.state === 'BACKING') {
             this.isInvulnerable = true;
@@ -123,13 +123,6 @@ export class Boss {
             this.attackTimer += dt;
             this.x += this.fireballDirection * (this.phase === 2 ? 4 : 2);
             if (this.attackTimer > 2.2) {
-                this.attackTimer = 0;
-                this.state = 'STUNNED';
-            }
-        } else if (this.state === 'LAVA_THROW') {
-            this.isInvulnerable = true;
-            this.attackTimer += dt;
-            if (this.attackTimer > 0.9) {
                 this.attackTimer = 0;
                 this.state = 'STUNNED';
             }

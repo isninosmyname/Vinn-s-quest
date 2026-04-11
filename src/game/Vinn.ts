@@ -16,6 +16,10 @@ export class Vinn {
   
   isSinking: boolean = false;
   sinkTimer: number = 0;
+  isSlipping: boolean = false;
+  slipTimer: number = 0;
+  slipVx: number = 0;
+  slipCooldown: number = 0;
   currentSpeedScale: number = 1.0;
   visualType: 'NORMAL' | 'SPIKY' = 'NORMAL';
   playerName: string = 'P1';
@@ -62,6 +66,14 @@ export class Vinn {
       this.vx = dir * force;
       this.vy = -3;
       this.onGround = false;
+  }
+
+  startSlip() {
+    if (this.isSlipping || this.isSinking || this.slipCooldown > 0) return;
+    this.isSlipping = true;
+    this.slipTimer = 0;
+    this.vx = 0;
+    this.vy = 0;
   }
 
   jump() {
@@ -114,10 +126,13 @@ export class Vinn {
 
       if (!isAbovePlatform) return;
 
-      if (p.type === 'PAINT') {
-          if (bottom >= p.y && prevBottom <= p.y + p.h) {
-              this.isSinking = true;
-              this.state = 'SINKING';
+      if (p.type === 'PAINT' || p.type === 'NORMAL' || (!p.type)) {
+          if (this.vy > 0 && prevBottom <= p.y && bottom >= p.y) {
+              this.y = p.y - this.limbLength;
+              this.vy = 0;
+              this.onGround = true;
+              this.lastSafeX = this.x;
+              this.lastSafeY = this.y;
           }
       } else if (p.type === 'MUSHROOM') {
           if (this.vy > 0 && prevBottom <= p.y + 5 && bottom >= p.y - 5) {
@@ -156,19 +171,37 @@ export class Vinn {
       return; 
     }
 
-    if (keys['a'] || keys['ArrowLeft']) {
-      this.vx = (this.isSinking ? -1.5 : -4.5 * speedMult);
-      this.direction = -1;
-    } else if (keys['d'] || keys['ArrowRight']) {
-      this.vx = (this.isSinking ? 1.5 : 4.5 * speedMult);
-      this.direction = 1;
-    } else {
-      this.vx *= 0.8;
-    }
+    // Cooldown after getting up
+    if (this.slipCooldown > 0) this.slipCooldown -= dt;
 
-    if (keys[' ']) {
-      this.state = 'ATTACKING';
-      this.attackTimer = 0;
+    // FALLEN state — player is flat on the ground, can't move or attack
+    if (this.isSlipping) {
+      this.slipTimer += dt;
+      this.vx = 0;
+      this.vy = 0;
+      this.onGround = true;
+      if (this.slipTimer > 2.0) {
+        this.isSlipping = false;
+        this.slipTimer = 0;
+        this.slipCooldown = 1.5; // immune for 1.5s after standing up
+      }
+      // Can't do anything while fallen — skip the rest of movement
+      return;
+    } else {
+      if (keys['a'] || keys['ArrowLeft']) {
+        this.vx = (this.isSinking ? -1.5 : -4.5 * speedMult);
+        this.direction = -1;
+      } else if (keys['d'] || keys['ArrowRight']) {
+        this.vx = (this.isSinking ? 1.5 : 4.5 * speedMult);
+        this.direction = 1;
+      } else {
+        this.vx *= 0.8;
+      }
+
+      if (keys[' ']) {
+        this.state = 'ATTACKING';
+        this.attackTimer = 0;
+      }
     }
 
     this.x += this.vx;
@@ -209,6 +242,61 @@ export class Vinn {
 
     const walkCycle = (state === 'WALKING') ? Math.sin(animTimer * (12 * this.currentSpeedScale)) * 20 : 0;
     const idleCycle = (state === 'IDLE') ? Math.sin(animTimer * 3) * 5 : 0;
+
+    // Draw player fallen flat on the floor
+    if (this.isSlipping) {
+        ctx.save();
+        ctx.strokeStyle = isHit ? '#fff' : color;
+        ctx.lineWidth = 4;
+        ctx.lineCap = 'round';
+        ctx.shadowBlur = 12;
+        ctx.shadowColor = color;
+
+        const dir = this.direction;
+        const fy = y + 28; // ground level for the horizontal body
+
+        // Head (circle on the side)
+        ctx.beginPath();
+        ctx.arc(relX + dir * 32, fy, this.headRadius, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // Body (horizontal spine)
+        ctx.beginPath();
+        ctx.moveTo(relX + dir * 18, fy);
+        ctx.lineTo(relX - dir * 18, fy);
+        ctx.stroke();
+
+        // Legs (angled up slightly)
+        ctx.beginPath();
+        ctx.moveTo(relX - dir * 10, fy);
+        ctx.lineTo(relX - dir * 10, fy - 22);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(relX - dir * 22, fy);
+        ctx.lineTo(relX - dir * 22, fy - 18);
+        ctx.stroke();
+
+        // Arms (limp)
+        ctx.beginPath();
+        ctx.moveTo(relX, fy - 4);
+        ctx.lineTo(relX + dir * 10, fy - 18);
+        ctx.stroke();
+
+        // Stars / daze above head
+        const daze = ['*', '✦', '*'];
+        ctx.font = 'bold 12px monospace';
+        ctx.fillStyle = '#ffff00';
+        ctx.textAlign = 'center';
+        for (let i = 0; i < 3; i++) {
+            const angle = (Date.now() / 300 + i * 2.1);
+            const sx = relX + dir * 32 + Math.cos(angle) * 16;
+            const sy = fy - 22 + Math.sin(angle) * 6;
+            ctx.fillText(daze[i], sx, sy);
+        }
+
+        ctx.restore();
+        return; // skip normal draw
+    }
  
     ctx.save();
     ctx.strokeStyle = isHit ? '#fff' : color;
