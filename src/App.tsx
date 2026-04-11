@@ -77,13 +77,13 @@ function App() {
               PLAY: 'PLAY', SETTINGS: 'SETTINGS', BACK: 'BACK TO MENU', CHOOSE_COLOR: 'HERO COLOR', LANGUAGE: 'LANGUAGE',
               SELECT_LEVEL: 'SELECT LEVEL', NEXT: 'NEXT LEVEL', RESTART: 'RESTART QUEST', TRY_AGAIN: 'TRY AGAIN',
               DEFEATED: 'DEFEATED', WORLD: 'WORLD', LEVEL: 'LEVEL', COMPLETE: 'COMPLETE',
-              QUEST_MODE: 'QUEST MODE', SOLO: 'SOLO', DUO: 'DUO', P1_COLOR: 'P1 COLOR', P2_COLOR: 'P2 COLOR', PAINT_LAND: 'PAINT LAND'
+              QUEST_MODE: 'QUEST MODE', SOLO: 'SOLO', DUO: 'DUO', P1_COLOR: 'P1 COLOR', P2_COLOR: 'P2 COLOR'
           },
           es: {
               PLAY: 'JUGAR', SETTINGS: 'AJUSTES', BACK: 'VOLVER AL MENÚ', CHOOSE_COLOR: 'COLOR DEL HÉROE', LANGUAGE: 'IDIOMA',
               SELECT_LEVEL: 'ELEGIR NIVEL', NEXT: 'SIGUIENTE', RESTART: 'REINICIAR', TRY_AGAIN: 'REINTENTAR',
               DEFEATED: 'DERROTADO', WORLD: 'MUNDO', LEVEL: 'NIVEL', COMPLETE: 'COMPLETADO',
-              QUEST_MODE: 'MODO DE JUEGO', SOLO: 'SOLO', DUO: 'DÚO', P1_COLOR: 'P1 COLOR', P2_COLOR: 'P2 COLOR', PAINT_LAND: 'TIERRA PINTADA'
+              QUEST_MODE: 'MODO DE JUEGO', SOLO: 'SOLO', DUO: 'DÚO', P1_COLOR: 'P1 COLOR', P2_COLOR: 'P2 COLOR'
           }
       };
       return i18n[language][key] || key;
@@ -106,8 +106,6 @@ function App() {
   const [currentWorld, setCurrentWorld] = useState(1);
   const [currentLevel, setCurrentLevel] = useState(1);
   const [keys, setKeys] = useState<Record<string, boolean>>({});
-  const [showInkIntro, setShowInkIntro] = useState(false);
-  const inkIntroTimerRef = useRef(0);
   
   const vinnRef = useRef<Vinn>(new Vinn(100, 420, vinnColor, 'NORMAL', 'Vinn'));
   const vinn2Ref = useRef<Vinn>(new Vinn(150, 420, vinn2Color, 'SPIKY', 'Jhon'));
@@ -190,22 +188,19 @@ function App() {
         bossRef.current = null;
     }
 
-    // Generate paint puddles for Paint Land — sparse, 2-3 per level
+    // Generate paint puddles for Paint Land
     if (worldIndex === 3) {
-        const PUDDLE_COLORS = ['#ff00ff', '#00ffff', '#ff6600', '#00ff88'];
+        const PUDDLE_COLORS = ['#ff00ff', '#00ffff', '#ffff00', '#ff6600', '#00ff88'];
         const puddles: {x: number, w: number, color: string}[] = [];
         const levelLength = config.length as number;
-        let px = 500;
-        let count = 0;
-        const maxPuddles = config.isBoss ? 0 : 3;
-        while (px < levelLength - 300 && count < maxPuddles) {
+        let px = 300;
+        while (px < levelLength - 200) {
             puddles.push({
                 x: px,
-                w: 70 + Math.random() * 50,
+                w: 60 + Math.random() * 80,
                 color: PUDDLE_COLORS[Math.floor(Math.random() * PUDDLE_COLORS.length)]
             });
-            px += 600 + Math.random() * 400;
-            count++;
+            px += 250 + Math.random() * 300;
         }
         paintPuddlesRef.current = puddles;
     } else {
@@ -259,18 +254,13 @@ function App() {
       // BOSS VS Trigger
       if (gameState === 'PLAYING' && currentLevel === 5 && leadX > 800 && bossRef.current && !bossRef.current.introPlayed) {
           bossRef.current.introPlayed = true;
+          setGameState('BOSS_VS_CUTSCENE');
           
-          // Special handling for Ink Colossus - show intro cutscene
-          if (currentWorld === 3 && bossRef.current.type === 'INK_COLOSSUS') {
-              setShowInkIntro(true);
-              inkIntroTimerRef.current = 0;
-          } else {
-              setGameState('BOSS_VS_CUTSCENE');
-              setTimeout(() => {
-                  setGameState('PLAYING');
-                  if (bossRef.current) bossRef.current.state = bossRef.current.type === 'GOLEM' ? 'FLY_UP' : 'WALKING';
-              }, 3000);
-          }
+          // Timeout to resume gameplay
+          setTimeout(() => {
+              setGameState('PLAYING');
+              if (bossRef.current) bossRef.current.state = bossRef.current.type === 'GOLEM' ? 'FLY_UP' : 'WALKING';
+          }, 3000);
           return;
       }
 
@@ -305,16 +295,18 @@ function App() {
         paintPuddlesRef.current.forEach(puddle => {
           const checkSlip = (player: typeof vinnRef.current) => {
             if (player.health <= 0) return;
+            const onGround = player.onGround;
             const inPuddleX = player.x > puddle.x && player.x < puddle.x + puddle.w;
             const nearGround = Math.abs(player.y - 430) < 60;
-            if (player.onGround && inPuddleX && nearGround) {
-              player.startSlip();
+            if (onGround && inPuddleX && nearGround && !player.isSlipping) {
+              player.startSlip(player.vx >= 0 ? 1 : -1);
             }
           };
           checkSlip(vinnRef.current);
           if (isTwoPlayer) checkSlip(vinn2Ref.current);
         });
       }
+
 
       if (!anyAlive && gameState === 'PLAYING') {
         setGameState('GAMEOVER');
@@ -379,15 +371,6 @@ function App() {
             }
         }
     } else if (gameState === 'PLAYING') {
-      // Update Ink Colossus intro overlay timer
-      if (showInkIntro) {
-          inkIntroTimerRef.current += dt;
-          if (inkIntroTimerRef.current > 2.5) {
-              setShowInkIntro(false);
-              if (bossRef.current) bossRef.current.state = 'WALKING';
-          }
-      }
-
       if (vinnRef.current.x >= levelConfig.length - 100) {
         if (!levelConfig.isBoss) {
             if (currentLevel < 5) setGameState('LEVEL_TRANSITION');
@@ -493,21 +476,6 @@ function App() {
                   bossProjectilesRef.current.push({ type: 'FIREBALL', x: bossRef.current.x, y: bossRef.current.y - 40, vx: bossRef.current.direction * 8, vy: 0, life: 1 });
               }
           }
-          
-          // Ink Colossus throws ink projectiles
-          if (bossRef.current.type === 'INK_COLOSSUS' && !showInkIntro) {
-              if (Math.random() < 0.05) {
-                  bossProjectilesRef.current.push({
-                      type: 'LAVA',
-                      x: bossRef.current.x + (Math.random() - 0.5) * 50,
-                      y: bossRef.current.y - 20,
-                      vx: (Math.random() - 0.5) * 6 - 1,
-                      vy: Math.random() * 2,
-                      life: 1
-                  });
-              }
-          }
-          
           const dx = Math.abs(bossRef.current.x - vinnRef.current.x);
           const dy = Math.abs(bossRef.current.y - vinnRef.current.y);
           const boss = bossRef.current;
@@ -681,20 +649,9 @@ function App() {
             ctx.fillStyle = '#ff4d4d'; ctx.beginPath(); ctx.ellipse(p.x - camX + p.w/2, p.y + 10, p.w/2, 20, 0, 0, Math.PI * 2); ctx.fill();
             ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(p.x - camX + p.w/2, p.y + 5, 10, 0, Math.PI*2); ctx.fill();
         } else if (p.type === 'PAINT') {
-            // Solid platform body
-            ctx.fillStyle = '#2a0a3a';
-            ctx.fillRect(p.x - camX, p.y, p.w, 14);
-            // Colorful painted top strip
-            const topGrad = ctx.createLinearGradient(p.x - camX, 0, p.x - camX + p.w, 0);
-            topGrad.addColorStop(0, '#ff00ff');
-            topGrad.addColorStop(0.5, '#00ffff');
-            topGrad.addColorStop(1, '#ff00ff');
-            ctx.fillStyle = topGrad;
-            ctx.fillRect(p.x - camX, p.y, p.w, 4);
-            // Border
-            ctx.strokeStyle = '#cc00cc';
-            ctx.lineWidth = 1;
-            ctx.strokeRect(p.x - camX, p.y, p.w, 14);
+            const gradient = ctx.createLinearGradient(0, p.y, 0, p.y + 20);
+            gradient.addColorStop(0, '#ff00ff'); gradient.addColorStop(1, '#00ffff');
+            ctx.fillStyle = gradient; ctx.fillRect(p.x - camX, p.y, p.w, 20);
         } else {
             ctx.fillStyle = (currentTheme === 'FOREST') ? '#4d2600' : (currentTheme === 'VOLCANO' ? '#222' : '#444');
             ctx.fillRect(p.x - camX, p.y, p.w, 15);
@@ -934,14 +891,6 @@ function App() {
                           <div className="play-icon"></div>
                       </div>
                   </div>
-                  <button
-                      type="button"
-                      className="back-btn"
-                      style={{ marginTop: '1.5rem', minWidth: '220px', display: 'block', marginLeft: 'auto', marginRight: 'auto' }}
-                      onClick={() => { musicRef.current.resume(); loadLevel(3, 5); }}
-                  >
-                      {t('PAINT_LAND')}
-                  </button>
               </div>
           )}
 
@@ -1043,18 +992,6 @@ function App() {
                   >
                     SKIP CUTSCENE
                   </button>
-              </div>
-          )}
-          
-          {showInkIntro && (
-              <div style={{ position: 'absolute', top: 0, left: 0, width: '800px', height: '500px', pointerEvents: 'none', overflow: 'hidden', zIndex: 100 }}>
-                  <div style={{ position: 'absolute', left: 0, top: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.5)' }}></div>
-                  <div style={{ position: 'absolute', bottom: 80, left: 100, fontSize: '2rem', fontFamily: 'var(--font-retro)', color: '#ffcc00', animation: 'bounce 0.5s infinite', textShadow: '4px 4px 0 #000' }}>!</div>
-                  <div style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%, -50%)', fontSize: '1.5rem', fontFamily: 'var(--font-retro)', color: '#ff2d55', textShadow: '4px 4px 0 #000', animation: 'fadeInOut 2s ease-in-out forwards' }}>CHASE!</div>
-                  <style>{`
-                    @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-20px); } }
-                    @keyframes fadeInOut { 0% { opacity: 0; } 20% { opacity: 1; } 80% { opacity: 1; } 100% { opacity: 0; } }
-                  `}</style>
               </div>
           )}
           
