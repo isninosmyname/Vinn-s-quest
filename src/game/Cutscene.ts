@@ -110,7 +110,7 @@ export class IntroCutscene {
         
         switch (this.phase) {
             case 'WALK_IN':
-                if (this.vinnX < 450) this.vinnX += 2.5;
+                if (this.vinnX < 550) this.vinnX += 2.5;
                 else { this.phase = 'KNEEL_AND_TALK'; this.timer = 0; }
                 break;
             case 'KNEEL_AND_TALK':
@@ -183,8 +183,8 @@ export class IntroCutscene {
         const isForest = ['FOREST_DROP', 'TECH_KIDNAP', 'VINN_LANDING'].includes(this.phase);
 
         if (!isForest) {
-            ctx.fillStyle = '#2c1e3d'; ctx.fillRect(0, 0, 800, 500);
-            ctx.fillStyle = '#4a0b2e'; ctx.fillRect(0, 420, 800, 80);
+            ctx.fillStyle = '#2c1e3d'; ctx.fillRect(0, 0, 1000, 500);
+            ctx.fillStyle = '#4a0b2e'; ctx.fillRect(0, 420, 1000, 80);
             
             if (this.phase !== 'WALK_IN' && this.phase !== 'KNEEL_AND_TALK' || this.dialogueIndex >= 3) {
                 ctx.fillStyle = '#0a0510'; ctx.fillRect(600, 50, 180, 300);
@@ -201,8 +201,8 @@ export class IntroCutscene {
             }
             this.drawThrone(ctx, 600, 420);
         } else {
-            ctx.fillStyle = '#1a2e1a'; ctx.fillRect(0, 0, 800, 500);
-            ctx.fillStyle = '#0f1a0f'; ctx.fillRect(0, 420, 800, 80);
+            ctx.fillStyle = '#1a2e1a'; ctx.fillRect(0, 0, 1000, 500);
+            ctx.fillStyle = '#0f1a0f'; ctx.fillRect(0, 420, 1000, 80);
             
             ctx.fillStyle = '#0a140a';
             for(let i=0; i<8; i++) {
@@ -229,10 +229,12 @@ export class IntroCutscene {
         }
 
         if (this.currentDialogue) {
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.8)'; ctx.fillRect(100, 30, 600, 100);
-            ctx.strokeStyle = '#fff'; ctx.lineWidth = 4; ctx.strokeRect(100, 30, 600, 100);
+            const boxW = 800;
+            const boxX = (1000 - boxW) / 2;
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.8)'; ctx.fillRect(boxX, 30, boxW, 100);
+            ctx.strokeStyle = '#fff'; ctx.lineWidth = 4; ctx.strokeRect(boxX, 30, boxW, 100);
             ctx.fillStyle = this.currentDialogue.speaker === 'Vinn' ? '#00f2ff' : (this.currentDialogue.speaker === 'Queen' ? '#ff69b4' : '#ff3333');
-            ctx.font = '16px "Press Start 2P"'; ctx.textBaseline = 'top'; ctx.fillText(this.currentDialogue.speaker + ':', 120, 50);
+            ctx.font = '16px "Press Start 2P"'; ctx.textBaseline = 'top'; ctx.fillText(this.currentDialogue.speaker + ':', boxX + 20, 50);
             ctx.fillStyle = '#fff'; ctx.font = '12px "Press Start 2P"';
             
             const words = this.currentDialogue.text.split(' ');
@@ -240,12 +242,12 @@ export class IntroCutscene {
             for(let n = 0; n < words.length; n++) {
                 const testLine = line + words[n] + ' ';
                 const metrics = ctx.measureText(testLine);
-                if (metrics.width > 560 && n > 0) { ctx.fillText(line, 120, lineY); line = words[n] + ' '; lineY += 20; }
+                if (metrics.width > 760 && n > 0) { ctx.fillText(line, boxX + 20, lineY); line = words[n] + ' '; lineY += 20; }
                 else line = testLine;
             }
-            ctx.fillText(line, 120, lineY);
+            ctx.fillText(line, boxX + 20, lineY);
             if (this.timer > 0.5 && !['PORTAL_OPENS', 'QUEEN_SUCKED_IN', 'VINN_JUMPS', 'FOREST_DROP'].includes(this.phase)) {
-                ctx.fillStyle = '#ffcc00'; ctx.font = '10px "Press Start 2P"'; ctx.textAlign = 'right'; ctx.fillText('[SPACE] to continue', 680, 110); ctx.textAlign = 'left';
+                ctx.fillStyle = '#ffcc00'; ctx.font = '10px "Press Start 2P"'; ctx.textAlign = 'right'; ctx.fillText('[SPACE] to continue', boxX + 780, 110); ctx.textAlign = 'left';
             }
         }
 

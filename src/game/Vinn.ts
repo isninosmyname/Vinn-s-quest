@@ -1,4 +1,4 @@
-export type GameState = 'IDLE' | 'WALKING' | 'ATTACKING' | 'DAMAGED' | 'JUMPING' | 'SINKING';
+export type GameState = 'IDLE' | 'WALKING' | 'ATTACKING' | 'DAMAGED' | 'JUMPING' | 'SINKING' | 'AIMING';
 
 export class Vinn {
   x: number;
@@ -23,6 +23,9 @@ export class Vinn {
   currentSpeedScale: number = 1.0;
   visualType: 'NORMAL' | 'SPIKY' = 'NORMAL';
   playerName: string = 'P1';
+  isAiming: boolean = false;
+  aimAngle: number = 0;
+  aimTimer: number = 0;
 
   lastSafeX: number = 100;
   lastSafeY: number = 400;
@@ -68,12 +71,11 @@ export class Vinn {
       this.onGround = false;
   }
 
-  startSlip() {
-    if (this.isSlipping || this.isSinking || this.slipCooldown > 0) return;
+  startSlip(direction: number = 1) {
+    if (this.slipCooldown > 0 || this.isSlipping) return;
     this.isSlipping = true;
     this.slipTimer = 0;
-    this.vx = 0;
-    this.vy = 0;
+    this.vx = direction * 5; // Initial tumble velocity
   }
 
   jump() {
@@ -101,6 +103,20 @@ export class Vinn {
             this.y = this.lastSafeY;
         }
         return;
+    }
+
+    if (this.state === 'AIMING') {
+      this.vx = 0;
+      this.vy = 0;
+      this.aimTimer += dt;
+      // Allow turning while aiming
+      if (keys['a'] || keys['ArrowLeft']) this.direction = -1;
+      else if (keys['d'] || keys['ArrowRight']) this.direction = 1;
+
+      // Oscillate angle between 0 (horizontal) and -PI/2 (vertical up)
+      const oscillation = (Math.sin(this.aimTimer * 3.5) + 1) / 2;
+      this.aimAngle = -oscillation * (Math.PI / 2);
+      return; 
     }
 
     if (this.isHit) {
@@ -180,7 +196,7 @@ export class Vinn {
       this.vx = 0;
       this.vy = 0;
       this.onGround = true;
-      if (this.slipTimer > 2.0) {
+      if (this.slipTimer > 1.0) {
         this.isSlipping = false;
         this.slipTimer = 0;
         this.slipCooldown = 1.5; // immune for 1.5s after standing up
@@ -217,6 +233,7 @@ export class Vinn {
           this.state = 'JUMPING';
       }
     }
+
 
     if (this.x < minX) this.x = minX;
     if (this.x > maxX) this.x = maxX;
@@ -383,6 +400,37 @@ export class Vinn {
         ctx.lineWidth = 2;
         ctx.strokeStyle = '#fff';
         ctx.stroke();
+    }
+
+    if (this.state === 'AIMING') {
+        const retDistance = 140;
+        const retX = relX + Math.cos(this.aimAngle) * retDistance * this.direction;
+        const retY = y - 30 + Math.sin(this.aimAngle) * retDistance;
+        
+        // Draw dotted guide line
+        ctx.save();
+        ctx.setLineDash([5, 8]);
+        ctx.strokeStyle = 'rgba(255, 204, 0, 0.4)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(relX, y - 30);
+        ctx.lineTo(retX, retY);
+        ctx.stroke();
+        ctx.restore();
+
+        // Draw Yellow "X" (reticle)
+        ctx.save();
+        ctx.translate(retX, retY);
+        ctx.rotate(Math.PI / 4); // Rotate 45deg to make + into X
+        ctx.strokeStyle = '#ffcc00';
+        ctx.lineWidth = 4;
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = '#ffcc00';
+        ctx.beginPath();
+        ctx.moveTo(-15, 0); ctx.lineTo(15, 0);
+        ctx.moveTo(0, -15); ctx.lineTo(0, 15);
+        ctx.stroke();
+        ctx.restore();
     }
 
     ctx.restore();

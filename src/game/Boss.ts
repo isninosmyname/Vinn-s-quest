@@ -16,6 +16,11 @@ export class Boss {
   isInvulnerable: boolean = false;
   direction: number = -1;
   fireballDirection: number = 0;
+  // Ink Colossus specific
+  inkHits: number = 0;
+  throwTimer: number = 0;
+  bombStunTimer: number = 0;
+  throwReady: boolean = false; // signals App.tsx to spawn a projectile
 
   constructor(x: number, y: number, type: BossType) {
     this.x = x;
@@ -142,21 +147,66 @@ export class Boss {
             }
         }
     } else if (this.type === 'INK_COLOSSUS') {
-        this.x += (dist > 0 ? 0.8 : -0.8);
-        this.state = 'ATTACKING';
-        this.attackTimer += dt;
-        if (Math.sin(this.animTimer * 2) > 0.5) {
+        if (this.state === 'DORMANT') {
+            this.isInvulnerable = true;
+            // Chase speeds increased for more intense fight
+            this.x += (dist > 0 ? 1 : -1) * (this.inkHits >= 3 ? 8.5 : 7.0);
+            this.throwTimer += dt;
+            const throwInterval = this.inkHits >= 3 ? 1.4 : 2.2;
+            if (this.throwTimer > throwInterval) {
+                this.throwTimer = 0;
+                this.throwReady = true;
+                this.state = 'THROWING';
+                this.attackTimer = 0;
+            }
+        } else if (this.state === 'THROWING') {
+            this.isInvulnerable = true;
+            this.attackTimer += dt;
+            if (this.attackTimer > 0.6) {
+                this.state = 'CHASING';
+                this.attackTimer = 0;
+            }
+        } else if (this.state === 'BOMB_STUNNED') {
+            this.isInvulnerable = true; // Still invulnerable to normal attacks
+            this.bombStunTimer += dt;
+            if (this.bombStunTimer > 1.0) {
+                this.bombStunTimer = 0;
+                this.state = 'CHASING';
+            }
+        } else if (this.state === 'DEFEATED') {
             this.isInvulnerable = true;
         }
     }
   }
 
   takeDamage(amount: number) {
+    if (this.type === 'INK_COLOSSUS') return false; // Must use Weak Point system
     if (this.isInvulnerable || this.isHit) return false;
     this.health -= amount;
     this.isHit = true;
     this.hitTimer = 0;
     return true;
+  }
+
+  takeBombHit(): boolean {
+    if (this.type !== 'INK_COLOSSUS') return false;
+    if (this.state !== 'BOMB_STUNNED') return false;
+    if (this.isHit) return false;
+    this.inkHits++;
+    this.isHit = true;
+    this.hitTimer = 0;
+    if (this.inkHits >= 5) {
+        this.state = 'DEFEATED';
+        this.health = 0;
+    }
+    return true;
+  }
+
+  enterBombStun() {
+    if (this.type !== 'INK_COLOSSUS') return;
+    if (this.state === 'BOMB_STUNNED' || this.state === 'DEFEATED') return;
+    this.state = 'BOMB_STUNNED';
+    this.bombStunTimer = 0;
   }
 
   draw(ctx: CanvasRenderingContext2D, cameraX: number) {
@@ -211,24 +261,73 @@ export class Boss {
           ctx.fill();
       }
     } else if (type === 'INK_COLOSSUS') {
-      ctx.shadowColor = isInvulnerable ? '#fff' : '#ff00ff';
-      ctx.fillStyle = isHit ? '#fff' : (isInvulnerable ? '#333' : '#000');
+      ctx.shadowColor = state === 'BOMB_STUNNED' ? '#ff00ff' : (state === 'DEFEATED' ? '#ff0000' : '#000');
+      const isStunned = state === 'BOMB_STUNNED';
+      const isDefeated = state === 'DEFEATED';
+      const bodySize = isDefeated ? (100 - (this as any).bombStunTimer * 30) : 100;
       
+      ctx.fillStyle = isHit ? '#fff' : (isDefeated ? '#ff0000' : (isStunned ? '#1a001a' : '#000'));
+      
+      // Main blob body
       ctx.beginPath();
       for(let i=0; i<12; i++) {
         const angle = (i / 12) * Math.PI * 2;
-        const r = (isInvulnerable ? 130 : 100) + Math.sin(animTimer * 5 + i) * 30;
+        const wobble = isDefeated ? 40 : (isStunned ? 15 : 30);
+        const r = Math.max(10, bodySize) + Math.sin(animTimer * 5 + i) * wobble;
         const tx = relX + Math.cos(angle) * r;
-        const ty = this.y - 100 + Math.sin(angle) * r;
+        const ty = this.y - 100 + Math.sin(angle) * r * 0.7;
         if(i === 0) ctx.moveTo(tx, ty);
         else ctx.lineTo(tx, ty);
       }
       ctx.closePath();
       ctx.fill();
-      
-      ctx.fillStyle = isInvulnerable ? '#fff' : '#ff00ff';
-      for(let i=0; i<5; i++) {
-          ctx.beginPath(); ctx.arc(relX - 40 + i*20, this.y - 100 + Math.sin(animTimer*3 + i)*20, 8, 0, Math.PI*2); ctx.fill();
+
+      // Dots — pulse when stunned
+      const dotCount = 5;
+      for(let i=0; i<dotCount; i++) {
+        const dotX = relX - 40 + i * 20;
+        const dotY = this.y - 100 + Math.sin(animTimer*3 + i)*20;
+        const dotR = isStunned ? (10 + Math.sin(animTimer * 8 + i) * 4) : 8;
+        ctx.save();
+        ctx.shadowBlur = isStunned ? 20 : 5;
+        ctx.shadowColor = '#ff00ff';
+        ctx.fillStyle = isStunned ? '#ff00ff' : (isHit ? '#fff' : '#ff00ff');
+        ctx.beginPath();
+        ctx.arc(dotX, dotY, dotR, 0, Math.PI*2);
+        ctx.fill();
+        ctx.restore();
+      }
+
+      // "HIT THE DOTS!" label when stunned
+      if (isStunned) {
+        const pulse = 0.7 + 0.3 * Math.sin(animTimer * 10);
+        ctx.save();
+        ctx.globalAlpha = pulse;
+        ctx.font = 'bold 14px monospace';
+        ctx.fillStyle = '#ff00ff';
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 3;
+        ctx.textAlign = 'center';
+        ctx.strokeText('HIT THE DOTS!', relX, this.y - 170);
+        ctx.fillText('HIT THE DOTS!', relX, this.y - 170);
+        // Remaining hits
+        ctx.font = '11px monospace';
+        ctx.fillStyle = '#fff';
+        ctx.fillText(`${5 - this.inkHits} hits left`, relX, this.y - 150);
+        ctx.restore();
+      }
+
+      if (isDefeated) {
+        const splats = 8;
+        for(let i=0; i<splats; i++) {
+          const a = (i/splats)*Math.PI*2;
+          ctx.fillStyle = '#ff00ff';
+          ctx.globalAlpha = 0.6;
+          ctx.beginPath();
+          ctx.ellipse(relX + Math.cos(a)*80, this.y - 80 + Math.sin(a)*50, 20, 10, a, 0, Math.PI*2);
+          ctx.fill();
+        }
+        ctx.globalAlpha = 1;
       }
     }
 

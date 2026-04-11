@@ -129,7 +129,7 @@ export class EndingCutscene {
                 break;
             case 'QUEEN_EXIT':
                 this.queenX += 4;
-                if (this.queenX > 900) { this.phase = 'VINN_STUNNED'; this.timer = 0; this.vinnStunned = true; }
+                if (this.queenX > 1100) { this.phase = 'VINN_STUNNED'; this.timer = 0; this.vinnStunned = true; }
                 break;
             case 'VINN_STUNNED':
                 if (this.timer > 2) { this.phase = 'BANQUET_CALL'; this.timer = 0; this.dialogueIndex = 9; }
@@ -139,7 +139,7 @@ export class EndingCutscene {
                 break;
             case 'FOLLOW_QUEEN':
                 this.vinnX += 6;
-                if (this.vinnX > 900) { this.phase = 'BUT_SCREEN'; this.timer = 0; }
+                if (this.vinnX > 1100) { this.phase = 'BUT_SCREEN'; this.timer = 0; }
                 break;
             case 'BUT_SCREEN':
                 if (this.timer > 3) { this.phase = 'BOSS_REGEN'; this.timer = 0; }
@@ -180,24 +180,24 @@ export class EndingCutscene {
         const isCastle = castlePhases.includes(this.phase);
 
         if (this.phase === 'BUT_SCREEN') {
-            ctx.fillStyle = '#000'; ctx.fillRect(0, 0, 800, 500);
+            ctx.fillStyle = '#000'; ctx.fillRect(0, 0, 1000, 500);
             ctx.fillStyle = '#ff2d55'; ctx.font = '40px "Press Start 2P"'; ctx.textAlign = 'center';
-            ctx.fillText(this.language === 'en' ? 'BUT...' : 'PERO...', 400, 250);
+            ctx.fillText(this.language === 'en' ? 'BUT...' : 'PERO...', 500, 250);
         } else if (this.phase === 'BOSS_REGEN' || this.phase === 'BOSS_FUSION' || this.phase === 'FIN_BAIT') {
             this.drawStinger(ctx);
         } else if (!isCastle) {
-            ctx.fillStyle = '#1a1a2e'; ctx.fillRect(0, 0, 800, 500);
-            ctx.fillStyle = '#10101a'; ctx.fillRect(0, 420, 800, 80);
+            ctx.fillStyle = '#1a1a2e'; ctx.fillRect(0, 0, 1000, 500);
+            ctx.fillStyle = '#10101a'; ctx.fillRect(0, 420, 1000, 80);
             if (this.phase === 'PORTAL_EXIT' && this.portalSize > 0) {
-                ctx.save(); ctx.translate(400, 300); ctx.rotate(this.portalAngle);
+                ctx.save(); ctx.translate(500, 300); ctx.rotate(this.portalAngle);
                 const g = ctx.createRadialGradient(0,0,10,0,0,this.portalSize);
                 g.addColorStop(0, '#fff'); g.addColorStop(0.5, '#ff00ff'); g.addColorStop(1, 'transparent');
                 ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0,0,this.portalSize,0,Math.PI*2); ctx.fill();
                 ctx.restore();
             }
         } else {
-            ctx.fillStyle = '#3d2c1e'; ctx.fillRect(0, 0, 800, 500);
-            ctx.fillStyle = '#4a0b2e'; ctx.fillRect(0, 420, 800, 80);
+            ctx.fillStyle = '#3d2c1e'; ctx.fillRect(0, 0, 1000, 500);
+            ctx.fillStyle = '#4a0b2e'; ctx.fillRect(0, 420, 1000, 80);
             ctx.fillStyle = '#776633'; ctx.fillRect(600, 50, 180, 300);
             ctx.strokeStyle = '#555'; ctx.lineWidth = 10; ctx.strokeRect(600, 50, 180, 300);
             ctx.fillStyle = '#b8860b'; ctx.fillRect(570, 370, 60, 80);
@@ -218,28 +218,30 @@ export class EndingCutscene {
         }
 
         if (this.currentDialogue && !['BUT_SCREEN','BOSS_REGEN','BOSS_FUSION','FIN_BAIT'].includes(this.phase)) {
-            ctx.textAlign = 'left'; ctx.fillStyle = 'rgba(0, 0, 0, 0.9)'; ctx.fillRect(100, 30, 600, 120);
-            ctx.strokeStyle = '#fff'; ctx.lineWidth = 4; ctx.strokeRect(100, 30, 600, 120);
+            const boxW = 800;
+            const boxX = (1000 - boxW) / 2;
+            ctx.textAlign = 'left'; ctx.fillStyle = 'rgba(0, 0, 0, 0.9)'; ctx.fillRect(boxX, 30, boxW, 120);
+            ctx.strokeStyle = '#fff'; ctx.lineWidth = 4; ctx.strokeRect(boxX, 30, boxW, 120);
             const sc = this.currentDialogue.speaker === 'Vinn' ? '#00f2ff' : '#ff69b4';
-            ctx.fillStyle = sc; ctx.font = '16px "Press Start 2P"'; ctx.textBaseline = 'top'; ctx.fillText(this.currentDialogue.speaker + ':', 120, 45);
+            ctx.fillStyle = sc; ctx.font = '16px "Press Start 2P"'; ctx.textBaseline = 'top'; ctx.fillText(this.currentDialogue.speaker + ':', boxX + 20, 45);
             ctx.fillStyle = '#fff'; ctx.font = '12px "Press Start 2P"';
             const words = this.currentDialogue.text.split(' ');
             let line = ''; let lineY = 75;
             for(let n = 0; n < words.length; n++) {
                 const testLine = line + words[n] + ' ';
                 const metrics = ctx.measureText(testLine);
-                if (metrics.width > 560 && n > 0) { ctx.fillText(line, 120, lineY); line = words[n] + ' '; lineY += 20; }
+                if (metrics.width > 760 && n > 0) { ctx.fillText(line, boxX + 20, lineY); line = words[n] + ' '; lineY += 20; }
                 else line = testLine;
             }
-            ctx.fillText(line, 120, lineY);
+            ctx.fillText(line, boxX + 20, lineY);
         }
         ctx.restore();
     }
 
     drawStinger(ctx: CanvasRenderingContext2D) {
-        ctx.fillStyle = '#050510'; ctx.fillRect(0, 0, 800, 500);
+        ctx.fillStyle = '#050510'; ctx.fillRect(0, 0, 1000, 500);
         ctx.strokeStyle = 'rgba(0, 255, 255, 0.1)'; ctx.lineWidth = 1;
-        for(let i=0; i<10; i++) { ctx.beginPath(); ctx.moveTo(i*80, 0); ctx.lineTo(i*80, 500); ctx.stroke(); ctx.beginPath(); ctx.moveTo(0, i*50); ctx.lineTo(800, i*50); ctx.stroke(); }
+        for(let i=0; i<13; i++) { ctx.beginPath(); ctx.moveTo(i*80, 0); ctx.lineTo(i*80, 500); ctx.stroke(); ctx.beginPath(); ctx.moveTo(0, i*50); ctx.lineTo(1000, i*50); ctx.stroke(); }
         
         if (this.phase === 'BOSS_REGEN') {
             this.drawFragment(ctx, 200, 300, 'GOLEM', Math.sin(this.timer*5)*5);
@@ -263,11 +265,11 @@ export class EndingCutscene {
                 this.drawBurningInkGolem(ctx, fusionX, fusionY, (progress-0.8)*5);
             }
         } else if (this.phase === 'FIN_BAIT') {
-             this.drawBurningInkGolem(ctx, 400, 300, 1);
+             this.drawBurningInkGolem(ctx, 500, 300, 1);
              ctx.fillStyle = '#fff'; ctx.font = '20px "Press Start 2P"'; ctx.textAlign = 'center';
-             ctx.fillText("VINN'S QUEST 2", 400, 100);
+             ctx.fillText("VINN'S QUEST 2", 500, 100);
              ctx.fillStyle = '#ff2d55'; ctx.font = '14px "Press Start 2P"';
-             ctx.fillText("TO BE CONTINUED...", 400, 450);
+             ctx.fillText("TO BE CONTINUED...", 500, 450);
         }
     }
 

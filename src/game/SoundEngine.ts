@@ -87,6 +87,29 @@ export class MusicManager {
         { lead: 'C#2', bass: 'C#1', perc: 'S', len: 0.8 }
     ];
 
+    private FOREST_THEME = [
+        { lead: 'C4', bass: 'C3', perc: 'H', len: 0.25 },
+        { lead: 'E4', bass: 'G3', perc: 'S', len: 0.25 },
+        { lead: 'G4', bass: 'C3', perc: 'H', len: 0.25 },
+        { lead: 'A4', bass: 'F3', perc: 'S', len: 0.25 },
+        { lead: 'G4', bass: 'C3', perc: 'H', len: 0.5 },
+        { lead: 'E4', bass: 'G3', perc: 'S', len: 0.5 }
+    ];
+
+    private VOLCANO_THEME = [
+        { lead: 'D3', bass: 'D2', perc: 'H', len: 0.4 },
+        { lead: 'F3', bass: 'D2', perc: 'S', len: 0.4 },
+        { lead: 'G#3', bass: 'G#2', perc: 'H', len: 0.4 },
+        { lead: 'F3', bass: 'D2', perc: 'S', len: 0.4 }
+    ];
+
+    private PAINT_THEME = [
+        { lead: 'C4', bass: 'C3', perc: 'H', len: 0.3 },
+        { lead: 'D#4', bass: 'F#2', perc: 'S', len: 0.3 },
+        { lead: 'F#4', bass: 'C3', perc: 'H', len: 0.3 },
+        { lead: 'A4', bass: 'F#2', perc: 'S', len: 0.3 }
+    ];
+
     constructor() {}
 
     private init() {
@@ -111,6 +134,9 @@ export class MusicManager {
         else if (['PORTAL_OPENS', 'QUEEN_SUCKED_IN', 'VINN_JUMPS', 'FOREST_DROP', 'TECH_KIDNAP', 'VINN_LANDING'].includes(phase)) targetTrack = 'STORM';
         else if (['REUNION', 'PORTAL_EXIT', 'CASTLE_ARRIVAL', 'THE_REWARD', 'THE_KISS', 'QUEEN_EXIT', 'BANQUET_CALL', 'FOLLOW_QUEEN'].includes(phase)) targetTrack = 'VICTORY';
         else if (['BUT_SCREEN', 'BOSS_REGEN', 'BOSS_FUSION', 'FIN_BAIT'].includes(phase)) targetTrack = 'STINGER';
+        else if (phase === 'FOREST_WORLD') targetTrack = 'FOREST_THEME';
+        else if (phase === 'VOLCANO_WORLD') targetTrack = 'VOLCANO_THEME';
+        else if (phase === 'PAINT_WORLD') targetTrack = 'PAINT_THEME';
         else if (phase === 'VINN_STUNNED') targetTrack = null; 
 
         if (targetTrack !== this.currentTrack) {
@@ -148,6 +174,9 @@ export class MusicManager {
         if (this.currentTrack === 'ROYAL') melody = this.ROYAL_THEME;
         else if (this.currentTrack === 'STORM') melody = this.STORM_THEME;
         else if (this.currentTrack === 'VICTORY') melody = this.VICTORY_THEME;
+        else if (this.currentTrack === 'FOREST_THEME') melody = this.FOREST_THEME;
+        else if (this.currentTrack === 'VOLCANO_THEME') melody = this.VOLCANO_THEME;
+        else if (this.currentTrack === 'PAINT_THEME') melody = this.PAINT_THEME;
         else melody = this.STINGER_THEME;
         const step = melody[this.noteIndex];
         const time = this.ctx.currentTime;
