@@ -77,6 +77,12 @@ function App() {
   const [vinn2Color, setVinn2Color] = useState(() => localStorage.getItem('vinns_quest_color2') || '#ff00ff');
   const [isTwoPlayer, setIsTwoPlayer] = useState(() => localStorage.getItem('vinns_quest_2p') === 'true');
 
+  // Mobile detection
+  const [isMobile] = useState(() =>
+    typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0)
+  );
+  const mobileKeysRef = useRef<Record<string, boolean>>({});
+
   const t = (key: string) => {
       const i18n: any = {
           en: {
@@ -112,6 +118,8 @@ function App() {
   const [currentWorld, setCurrentWorld] = useState(1);
   const [currentLevel, setCurrentLevel] = useState(1);
   const [keys, setKeys] = useState<Record<string, boolean>>({});
+  // Merge mobile virtual keys into the keys read by the game loop
+  const mergedKeys = isMobile ? { ...keys, ...mobileKeysRef.current } : keys;
   
   const vinnRef = useRef<Vinn>(new Vinn(100, 420, vinnColor, 'NORMAL', 'Vinn'));
   const vinn2Ref = useRef<Vinn>(new Vinn(150, 420, vinn2Color, 'SPIKY', 'Jhon'));
@@ -134,30 +142,29 @@ function App() {
   const levelBombsRef = useRef<{x: number, launched: boolean, vx: number, vy: number, lx: number, ly: number}[]>([]);
   const inkIntroTimerRef = useRef(0);
 
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-        const k = e.key.toLowerCase();
-        setKeys(prev => ({ ...prev, [k]: true }));
-        
-        // Vinn (P1) Jump: W or Control
-        if (k === 'w' || e.key === 'Control') {
-            vinnRef.current.jump();
-        }
-        // Jhon (P2) Jump: ArrowUp or Shift
-        if (isTwoPlayer && (e.key === 'ArrowUp' || e.key === 'Shift')) {
-            vinn2Ref.current.jump();
-        }
-        if (e.key === ' ' && gameState === 'INTRO_CUTSCENE') {
+    const advanceCutscene = () => {
+        if (gameState === 'INTRO_CUTSCENE') {
             musicRef.current.resume();
             cutsceneRef.current.advanceDialogue();
-        }
-        if (e.key === ' ' && gameState === 'ENDING_CUTSCENE') {
+        } else if (gameState === 'ENDING_CUTSCENE') {
             endingRef.current.advanceDialogue();
-        }
-        if (e.key === ' ' && gameState === 'INK_BOSS_INTRO') {
+        } else if (gameState === 'INK_BOSS_INTRO') {
             inkIntroTimerRef.current = 999; // force skip
         }
     };
+
+    useEffect(() => {
+      const handleKeyDown = (e: KeyboardEvent) => {
+          const k = e.key.toLowerCase();
+          setKeys(prev => ({ ...prev, [k]: true }));
+          
+          if (k === 'w' || e.key === 'Control') vinnRef.current.jump();
+          if (isTwoPlayer && (e.key === 'ArrowUp' || e.key === 'Shift')) vinn2Ref.current.jump();
+          
+          if (e.key === ' ') {
+              advanceCutscene();
+          }
+      };
     const handleKeyUp = (e: KeyboardEvent) => setKeys(prev => ({ ...prev, [e.key.toLowerCase()]: false }));
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
@@ -425,8 +432,8 @@ function App() {
       // Ink Colossus: auto-run mode — override Vinn's vx, only jump/attack input allowed
       
       const autoRunKeys = (inkChase && !anyAiming)
-          ? { ...keys, 'd': true, 'a': false, 'arrowright': true, 'arrowleft': false }
-          : keys;
+          ? { ...mergedKeys, 'd': true, 'a': false, 'arrowright': true, 'arrowleft': false }
+          : mergedKeys;
 
       // P1 Update
       vinnRef.current.update(dt, autoRunKeys, activeLength - 50, activePlatforms, gameState === 'TUTORIAL' ? 0.7 : 1.0, minX);
@@ -540,7 +547,7 @@ function App() {
         }
         techSkeleton.update(dt, tutTargetX);
 
-        if (tutorialPhase === 0 && (keys['a'] || keys['d'])) setTutorialPhase(1);
+        if (tutorialPhase === 0 && (mergedKeys['a'] || mergedKeys['d'])) setTutorialPhase(1);
         if (tutorialPhase === 1 && vinnRef.current.y < 400) setTutorialPhase(2);
 
         if (vinnRef.current.state === 'ATTACKING' && vinnRef.current.attackTimer < 0.1) {
@@ -1277,6 +1284,10 @@ function spawnParticles(x: number, y: number, color?: string) {
 
   return (
     <div className="game-container">
+      <div className="orientation-overlay">
+        <h2>PLEASE ROTATE<br/>YOUR DEVICE</h2>
+        <div className="phone-icon"></div>
+      </div>
       <div className="hud">
         {['PLAYING', 'TUTORIAL', 'GAMEOVER', 'LEVEL_TRANSITION', 'WORLD_COMPLETE', 'GAME_WON'].includes(gameState) && (
         <div className="header">
@@ -1515,6 +1526,43 @@ function spawnParticles(x: number, y: number, color?: string) {
         <div className="controls-hint"><span>[WASD] MOVE/JUMP</span><span>[SPACE] ATTACK</span></div>
       </div>
       <canvas ref={canvasRef} width={GAME_WIDTH} height={GAME_HEIGHT} style={{border: '4px solid #333'}} />
+
+      {/* ─── Mobile On-Screen Controls ─────────────────────────── */}
+      {isMobile && ['PLAYING', 'TUTORIAL', 'INTRO_CUTSCENE', 'ENDING_CUTSCENE', 'INK_BOSS_INTRO'].includes(gameState) && (
+        <div className="mobile-controls">
+          {/* D-Pad - Only show during movement phases */}
+          {['PLAYING', 'TUTORIAL'].includes(gameState) && (
+            <div className="mobile-dpad">
+              <button
+                className="mobile-btn dpad-left"
+                onTouchStart={(e) => { e.preventDefault(); mobileKeysRef.current['a'] = true; }}
+                onTouchEnd={(e) => { e.preventDefault(); mobileKeysRef.current['a'] = false; }}
+              >◀</button>
+              <button
+                className="mobile-btn dpad-jump"
+                onTouchStart={(e) => { e.preventDefault(); vinnRef.current.jump(); }}
+              >▲</button>
+              <button
+                className="mobile-btn dpad-right"
+                onTouchStart={(e) => { e.preventDefault(); mobileKeysRef.current['d'] = true; }}
+                onTouchEnd={(e) => { e.preventDefault(); mobileKeysRef.current['d'] = false; }}
+              >▶</button>
+            </div>
+          )}
+          {/* Action Buttons */}
+          <div className="mobile-actions">
+            <button
+              className="mobile-btn action-attack"
+              onTouchStart={(e) => { 
+                  e.preventDefault(); 
+                  mobileKeysRef.current[' '] = true; 
+                  advanceCutscene();
+              }}
+              onTouchEnd={(e) => { e.preventDefault(); mobileKeysRef.current[' '] = false; }}
+            >{['PLAYING', 'TUTORIAL'].includes(gameState) ? '⚔' : 'NEXT'}</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
