@@ -203,7 +203,9 @@ function App() {
     itemsRef.current = configItems.map((i: Item) => ({ ...i }));
     
     if (config.isBoss) {
-        bossRef.current = new Boss(1200, 460, config.bossType as BossType);
+        const startX = config.bossType === 'INK_COLOSSUS' ? -100 : 1200;
+        bossRef.current = new Boss(startX, 460, config.bossType as BossType);
+        if (config.bossType === 'INK_COLOSSUS') bossRef.current.state = 'CHASING';
     } else {
         bossRef.current = null;
     }
@@ -233,10 +235,11 @@ function App() {
         levelBombsRef.current = (config.bombs || []).map((b: {x: number}) => ({
             x: b.x, launched: false, vx: 0, vy: 0, lx: b.x, ly: 440
         }));
+        vinnRef.current.x = 250; 
         inkIntroTimerRef.current = 0;
         setCurrentWorld(worldIndex);
         setCurrentLevel(levelIndex);
-        setGameState('INK_BOSS_INTRO');
+        setGameState('PLAYING');
         return;
     } else {
         levelBombsRef.current = [];
@@ -276,131 +279,11 @@ function App() {
     const inkChase = currentWorld === 3 && currentLevel === 5 && bossRef.current?.type === 'INK_COLOSSUS';
     const anyAiming = vinnRef.current.state === 'AIMING' || vinn2Ref.current.state === 'AIMING';
 
-    // ─── INK BOSS INTRO CUTSCENE ───────────────────────────────────────────
-    if (gameState === 'INK_BOSS_INTRO') {
-        musicRef.current.update('BUT_SCREEN');
+    const anyAlive = vinnRef.current.health > 0 || (isTwoPlayer && vinn2Ref.current.health > 0);
+    
+    // Increment ink boss intro timer during gameplay for 'appearance' sync
+    if (inkChase && gameState === 'PLAYING') {
         inkIntroTimerRef.current += dt;
-        const t = inkIntroTimerRef.current;
-        const INTRO_DURATION = 4.0;
-
-        // Background
-        ctx.fillStyle = '#0a000f';
-        ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
-
-        // Ground
-        ctx.fillStyle = '#1a0025';
-        ctx.fillRect(0, 455, GAME_WIDTH, 45);
-
-        // Rocks on left side (cracks open)
-        const crackProgress = Math.min(1, t / 1.5);
-        const rockShake = t < 1.5 ? Math.sin(t * 30) * 3 : 0;
-        ctx.fillStyle = '#2a2a2a';
-        ctx.fillRect(500 + rockShake, 300, 200, 160); // big rock
-        ctx.fillRect(580 + rockShake, 250, 100, 80);  // top rock
-        // Crack glow growing from rock center
-        if (t > 0.5) {
-            const glow = ctx.createRadialGradient(600, 400, 0, 600, 400, 80 * crackProgress);
-            glow.addColorStop(0, 'rgba(255,0,255,0.8)');
-            glow.addColorStop(1, 'transparent');
-            ctx.fillStyle = glow;
-            ctx.fillRect(520, 300, 180, 160);
-        }
-
-        // Ink Colossus emerging (scale from 0 to 1 between t=1 and t=2.5)
-        if (t > 1.0) {
-            const emerge = Math.min(1, (t - 1.0) / 1.5);
-            ctx.save();
-            ctx.translate(620, 460 - emerge * 160);
-            ctx.scale(emerge, emerge);
-            ctx.shadowBlur = 30;
-            ctx.shadowColor = '#ff00ff';
-            ctx.fillStyle = '#000';
-            ctx.beginPath();
-            for (let i = 0; i < 12; i++) {
-                const a = (i / 12) * Math.PI * 2;
-                const r = 70 + Math.sin(Date.now()/200 + i) * 20;
-                const tx = Math.cos(a) * r, ty = -60 + Math.sin(a) * r * 0.7;
-                i === 0 ? ctx.moveTo(tx, ty) : ctx.lineTo(tx, ty);
-            }
-            ctx.closePath();
-            ctx.fill();
-            // Dots
-            ctx.fillStyle = '#ff00ff';
-            for (let i = 0; i < 5; i++) {
-                ctx.beginPath();
-                ctx.arc(-40 + i*20, -60, 7, 0, Math.PI*2);
-                ctx.fill();
-            }
-            ctx.restore();
-        }
-
-        // Door on right side
-        const doorX = 100, doorY = 340;
-        ctx.fillStyle = '#663300';
-        ctx.fillRect(doorX, doorY, 60, 120);
-        ctx.fillStyle = '#884400';
-        ctx.fillRect(doorX + 4, doorY + 4, 52, 112);
-        ctx.fillStyle = '#ffcc00';
-        ctx.beginPath();
-        ctx.arc(doorX + 50, doorY + 62, 5, 0, Math.PI*2);
-        ctx.fill();
-        // Door glow (open)
-        if (t > 0.5) {
-            ctx.fillStyle = 'rgba(0,200,255,0.25)';
-            ctx.fillRect(doorX + 4, doorY + 4, 52, 112);
-        }
-
-        // Vinn running toward door (starts at x=400, moves to x=135 over first 2s)
-        const vinnRunX = t < 2.5
-            ? Math.max(135, 400 - (t / 2.5) * 265)
-            : 135;
-        const legSwing = Math.sin(Date.now() / 100) * 20;
-        ctx.strokeStyle = vinnColor;
-        ctx.lineWidth = 3;
-        ctx.lineCap = 'round';
-        ctx.shadowBlur = 10;
-        ctx.shadowColor = vinnColor;
-        // Body
-        ctx.beginPath(); ctx.arc(vinnRunX, doorY + 50, 10, 0, Math.PI*2); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(vinnRunX, doorY+60); ctx.lineTo(vinnRunX, doorY+90); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(vinnRunX, doorY+90); ctx.lineTo(vinnRunX - legSwing, doorY+120); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(vinnRunX, doorY+90); ctx.lineTo(vinnRunX + legSwing, doorY+120); ctx.stroke();
-        ctx.shadowBlur = 0;
-
-        // "RUN!" text in last second
-        if (t > 2.8) {
-            const flashAlpha = 0.5 + 0.5 * Math.sin((t - 2.8) * 12);
-            ctx.save();
-            ctx.globalAlpha = flashAlpha;
-            ctx.font = 'bold 64px monospace';
-            ctx.fillStyle = '#ff2d55';
-            ctx.strokeStyle = '#000';
-            ctx.lineWidth = 6;
-            ctx.textAlign = 'center';
-            ctx.strokeText('RUN!', 400, 220);
-            ctx.fillText('RUN!', 400, 220);
-            ctx.restore();
-        }
-
-        // Bottom bar — boss name
-        ctx.fillStyle = 'rgba(0,0,0,0.7)';
-        ctx.fillRect(0, 470, GAME_WIDTH, 30);
-        ctx.font = 'bold 13px monospace';
-        ctx.fillStyle = '#ff00ff';
-        ctx.textAlign = 'center';
-        ctx.fillText('⚠  THE INK COLOSSUS AWAKENS  ⚠', GAME_WIDTH / 2, 488);
-
-        // Skip hint
-        ctx.font = '10px monospace';
-        ctx.fillStyle = 'rgba(255,255,255,0.4)';
-        ctx.textAlign = 'right';
-        ctx.fillText('[SPACE] Skip', 795, 18);
-
-        if (t >= INTRO_DURATION) {
-            if (bossRef.current) bossRef.current.state = 'CHASING';
-            setGameState('PLAYING');
-        }
-        return;
     }
 
     if (gameState === 'PLAYING' || gameState === 'TUTORIAL') {
@@ -437,17 +320,17 @@ function App() {
 
       // P1 Update
       vinnRef.current.update(dt, autoRunKeys, activeLength - 50, activePlatforms, gameState === 'TUTORIAL' ? 0.7 : 1.0, minX);
-      if (inkChase && !anyAiming) vinnRef.current.vx = Math.max(vinnRef.current.vx, 6.5); // enforce auto-run speed
+      if (inkChase && !anyAiming) vinnRef.current.vx = Math.max(vinnRef.current.vx, 5.0);
       else if (anyAiming) vinnRef.current.vx = 0;
 
       
       // P2 Update
       if (isTwoPlayer) {
           const p2Keys = {
-              'a': keys['arrowleft'], 'd': keys['arrowright'], ' ': keys['enter']
+              'a': mergedKeys['arrowleft'], 'd': mergedKeys['arrowright'], ' ': mergedKeys['enter']
           };
           vinn2Ref.current.update(dt, p2Keys, activeLength - 50, activePlatforms, 1.0, minX);
-          if (inkChase && !anyAiming) vinn2Ref.current.vx = Math.max(vinn2Ref.current.vx, 6.5);
+          if (inkChase && !anyAiming) vinn2Ref.current.vx = Math.max(vinn2Ref.current.vx, 5.0);
           else if (anyAiming) vinn2Ref.current.vx = 0;
 
           // Revive Logic
@@ -1259,7 +1142,12 @@ function spawnParticles(x: number, y: number, color?: string) {
     }
     if (gameState === 'PLAYING') {
         enemiesRef.current.forEach(e => e.health > 0 && e.draw(ctx, camX));
-        if (bossRef.current && bossRef.current.health > 0) bossRef.current.draw(ctx, camX);
+        if (bossRef.current && bossRef.current.health > 0) {
+            const isInk = bossRef.current.type === 'INK_COLOSSUS';
+            if (!isInk || inkIntroTimerRef.current >= 1.0) {
+                bossRef.current.draw(ctx, camX);
+            }
+        }
     }
 
     if (gameState === 'PLAYING' && bossRef.current && bossRef.current.health > 0) {
@@ -1526,6 +1414,29 @@ function spawnParticles(x: number, y: number, color?: string) {
         <div className="controls-hint"><span>[WASD] MOVE/JUMP</span><span>[SPACE] ATTACK</span></div>
       </div>
       <canvas ref={canvasRef} width={GAME_WIDTH} height={GAME_HEIGHT} style={{border: '4px solid #333'}} />
+
+      {/* ─── Ink Boss Entry Overlay ─────────────────────────── */}
+      {inkChase && inkIntroTimerRef.current < 1.0 && (
+          <div style={{
+              position: 'absolute', top: 0, left: 0, width: '100%', height: '100%',
+              pointerEvents: 'none', display: 'flex', flexDirection: 'column',
+              justifyContent: 'center', alignItems: 'center', zIndex: 2000
+          }}>
+              <div style={{
+                  fontSize: '80px', fontFamily: 'monospace', fontWeight: 'bold',
+                  color: '#ff2d55', textShadow: '4px 4px 0 #000', marginBottom: '20px',
+                  animation: 'pulse 0.2s infinite alternate'
+              }}>RUN!</div>
+              <div style={{
+                  position: 'absolute', bottom: '0', left: 0, width: '100%', height: '40px',
+                  background: 'rgba(0,0,0,0.8)', borderTop: '2px solid #ff00ff',
+                  display: 'flex', justifyContent: 'center', alignItems: 'center',
+                  color: '#ff00ff', fontSize: '14px', fontWeight: 'bold', fontFamily: 'monospace'
+              }}>
+                   ⚠  THE INK COLOSSUS AWAKENS  ⚠
+              </div>
+          </div>
+      )}
 
       {/* ─── Mobile On-Screen Controls ─────────────────────────── */}
       {isMobile && ['PLAYING', 'TUTORIAL', 'INTRO_CUTSCENE', 'ENDING_CUTSCENE', 'INK_BOSS_INTRO'].includes(gameState) && (

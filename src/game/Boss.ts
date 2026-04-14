@@ -147,7 +147,7 @@ export class Boss {
             }
         }
     } else if (this.type === 'INK_COLOSSUS') {
-        if (this.state === 'DORMANT') {
+        if (this.state === 'CHASING') {
             this.isInvulnerable = true;
             // Chase speeds increased for more intense fight
             this.x += (dist > 0 ? 1 : -1) * (this.inkHits >= 3 ? 8.5 : 7.0);
