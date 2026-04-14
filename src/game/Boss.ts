@@ -147,9 +147,10 @@ export class Boss {
             }
         }
     } else if (this.type === 'INK_COLOSSUS') {
+        if (this.state === 'IDLE' || this.state === 'WALKING') this.state = 'CHASING';
         if (this.state === 'CHASING') {
             this.isInvulnerable = true;
-            // Chase speeds increased for more intense fight
+            this.y += (580 - this.y) * 0.1; // Snap to bottom edge
             this.x += (dist > 0 ? 1 : -1) * (this.inkHits >= 3 ? 8.5 : 7.0);
             this.throwTimer += dt;
             const throwInterval = this.inkHits >= 3 ? 1.4 : 2.2;
@@ -159,22 +160,42 @@ export class Boss {
                 this.state = 'THROWING';
                 this.attackTimer = 0;
             }
+        } else if (this.state === 'RISING') {
+            this.isInvulnerable = true;
+            // Rise towards elevator height (around 200)
+            const targetY = 220;
+            this.y += (targetY - this.y) * 0.02; // Slow rise
+            // Wobble horizontally while rising
+            this.x += Math.sin(this.animTimer * 2) * 2;
+        } else if (this.state === 'FALLING') {
+            this.isInvulnerable = true;
+            this.y += 10; // Rapid fall
+            if (this.y >= 460) {
+                this.y = 460;
+                this.state = 'CHASING';
+            }
+        } else if (this.state === 'ANGRY_CHASE') {
+            this.isInvulnerable = true;
+            this.y += (580 - this.y) * 0.1;
+            // Ultra fast final chase
+            this.x += (dist > 0 ? 1 : -1) * 11.0;
+            this.throwTimer += dt * 2; // Double throw rate
+            if (this.throwTimer > 0.8) {
+                this.throwTimer = 0;
+                this.throwReady = true;
+                this.state = 'THROWING';
+                this.attackTimer = 0;
+            }
         } else if (this.state === 'THROWING') {
             this.isInvulnerable = true;
             this.attackTimer += dt;
             if (this.attackTimer > 0.6) {
-                this.state = 'CHASING';
+                this.state = this.inkHits >= 5 ? 'ANGRY_CHASE' : 'CHASING';
                 this.attackTimer = 0;
-            }
-        } else if (this.state === 'BOMB_STUNNED') {
-            this.isInvulnerable = true; // Still invulnerable to normal attacks
-            this.bombStunTimer += dt;
-            if (this.bombStunTimer > 1.0) {
-                this.bombStunTimer = 0;
-                this.state = 'CHASING';
             }
         } else if (this.state === 'DEFEATED') {
             this.isInvulnerable = true;
+            this.y += 5; // Sink away
         }
     }
   }

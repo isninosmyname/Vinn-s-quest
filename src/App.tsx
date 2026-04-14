@@ -24,7 +24,7 @@ interface Platform {
 interface Item {
     x: number;
     y: number;
-    type: 'DOUBLE_JUMP';
+    type: 'DOUBLE_JUMP' | 'RAINBOW';
     collected: boolean;
 }
 
@@ -60,18 +60,65 @@ const WORLD_CONFIGS: Record<number, { theme: WorldTheme, levels: any[] }> = {
       { length: 3000, enemies: [{x: 800, type: 'NORMAL'}, {x: 2400, type: 'NORMAL'}], platforms: [{x: 0, y: 460, w: 500}, {x: 500, y: 350, w: 200, type: 'PAINT'}, {x: 800, y: 460, w: 500}, {x: 1300, y: 300, w: 300, type: 'PAINT'}, {x: 1700, y: 460, w: 1300}], items: [] },
       { length: 3600, enemies: [{x: 1000, type: 'NORMAL'}, {x: 2000, type: 'NORMAL'}, {x: 3000, type: 'NORMAL'}], platforms: [{x: 0, y: 460, w: 1000}, {x: 1100, y: 300, w: 400, type: 'PAINT'}, {x: 1600, y: 460, w: 2000}], items: [] },
       { length: 4000, enemies: [{x: 1000, type: 'NORMAL'}, {x: 2500, type: 'NORMAL'}], platforms: [{x: 0, y: 460, w: 1500}, {x: 1600, y: 250, w: 800, type: 'PAINT'}, {x: 2500, y: 460, w: 1500}], items: [] },
-      { length: 15000, enemies: [], platforms: [
-          {x: 0, y: 460, w: 15000}
+      { length: 15400, enemies: [], platforms: [
+          // Phase 1 (0-3000): Introductory jumps
+          {x: 0, y: 460, w: 600}, {x: 750, y: 400, w: 200}, {x: 1100, y: 460, w: 400, type: 'PAINT'}, {x: 1600, y: 350, w: 300}, {x: 2000, y: 460, w: 500}, 
+          {x: 2300, y: 300, w: 100, type: 'MUSHROOM'}, {x: 2600, y: 460, w: 600},
+          {x: 3200, y: 300, w: 500, type: 'NORMAL'}, // ELEVATOR 1 (at ~3k)
+
+          // Phase 2 (3000-6000): Rising verticality
+          {x: 3800, y: 460, w: 300}, {x: 4200, y: 380, w: 200}, {x: 4500, y: 300, w: 200}, {x: 4800, y: 220, w: 200}, {x: 5100, y: 350, w: 300, type: 'PAINT'},
+          {x: 5500, y: 460, w: 500},
+          {x: 6200, y: 300, w: 500, type: 'NORMAL'}, // ELEVATOR 2 (at ~6k)
+
+          // Phase 3 (6000-9000): Void leaps & Small slabs
+          {x: 6800, y: 400, w: 150}, {x: 7100, y: 350, w: 100}, {x: 7400, y: 300, w: 100, type: 'MUSHROOM'}, {x: 7700, y: 250, w: 150}, {x: 8000, y: 400, w: 200},
+          {x: 8400, y: 460, w: 400, type: 'PAINT'},
+          {x: 9200, y: 300, w: 500, type: 'NORMAL'}, // ELEVATOR 3 (at ~9k)
+
+          // Phase 4 (9000-12000): Hazard density
+          {x: 9800, y: 460, w: 400}, {x: 10300, y: 400, w: 200, type: 'PAINT'}, {x: 10600, y: 350, w: 200, type: 'PAINT'}, {x: 10900, y: 300, w: 200, type: 'PAINT'},
+          {x: 11200, y: 350, w: 400}, {x: 11700, y: 460, w: 300},
+          {x: 12200, y: 300, w: 500, type: 'NORMAL'}, // ELEVATOR 4 (at ~12k)
+
+          // Phase 5 (12000-15400): Final dash
+          {x: 12800, y: 400, w: 300}, {x: 13200, y: 320, w: 200}, {x: 13500, y: 250, w: 100, type: 'MUSHROOM'}, {x: 13800, y: 380, w: 400, type: 'PAINT'},
+          {x: 14300, y: 460, w: 600}, {x: 15000, y: 460, w: 400} // FINAL DOOR at ~15.4k
       ], isBoss: true, bossType: 'INK_COLOSSUS',
-      bombs: [{x: 800}, {x: 1600}, {x: 2400}] }
+      bombs: [],
+      items: [
+          {x: 4500, y: 260, type: 'RAINBOW', collected: false},
+          {x: 7400, y: 260, type: 'RAINBOW', collected: false},
+          {x: 10600, y: 310, type: 'RAINBOW', collected: false},
+          {x: 13800, y: 340, type: 'RAINBOW', collected: false}
+      ] }
     ]
   }
+};
+
+const BOSS_GUIDES: Record<string, {img?: string, title: string, text: string}[]> = {
+    'BLAZE_KING': [
+        { img: '/guides/blaze_king_fire.png', title: 'Phase 1: Rain of Fire', text: 'The Blaze King will summon fireballs from the sky! Keep moving and dodge the shadows to survive.' },
+        { img: '/guides/blaze_king_smash.png', title: 'Phase 2: Ground Smash', text: 'Watch out when he slams the ground! Jump over the fiery shockwaves racing along the floor.' },
+        { title: 'Counter Attack!', text: 'After his intense attacks, he will be momentarily stunned and dizzy. Safely run up and use your sword to damage him!' }
+    ],
+    'GOLEM': [
+        { img: '/guides/golem_raining.png', title: 'Phase 1: Death From Above', text: 'The Golem flies high and drops giant boulders. Evade the red shadows to avoid being crushed!' },
+        { title: 'Phase 2: Shockwave Stomp', text: 'He will heavily stomp the terrain sending powerful shockwaves. Time your jumps perfectly!' },
+        { img: '/guides/golem_stun.png', title: 'Counter Attack!', text: 'When the Golem finally collapses in a dizzy stun, strike him quickly with your sword!' }
+    ],
+    'INK_COLOSSUS': [
+        { title: 'Phase 1: Run!', text: 'The Ink Colossus will brutally chase you down a fast 15,000-pixel path! Jump across obstacles as fast as possible.' },
+        { title: 'Phase 2: The Rainbow Speed', text: 'Grab the glowing rainbow crystals to gain a massive speed boost and outrun the Colossus in his fastest chase moments!' },
+        { title: 'Phase 3: The Elevator Ascent', text: 'When you arrive at an Elevator checkpoint, stop! When the Boss rises beneath you from the pit, strike him immediately to launch your elevator upwards!' }
+    ]
 };
 
 function App() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [tutorialPhase, setTutorialPhase] = useState(0);
-  const [gameState, setGameState] = useState<'START_MENU' | 'SETTINGS' | 'LEVEL_SELECTOR' | 'INTRO_CUTSCENE' | 'TUTORIAL' | 'PLAYING' | 'BOSS_VS_CUTSCENE' | 'INK_BOSS_INTRO' | 'GAMEOVER' | 'LEVEL_TRANSITION' | 'WORLD_COMPLETE' | 'ENDING_CUTSCENE' | 'GAME_WON'>('START_MENU');
+  const [gameState, setGameState] = useState<'START_MENU' | 'SETTINGS' | 'LEVEL_SELECTOR' | 'INTRO_CUTSCENE' | 'TUTORIAL' | 'PLAYING' | 'BOSS_VS_CUTSCENE' | 'INK_BOSS_INTRO' | 'GAMEOVER' | 'LEVEL_TRANSITION' | 'WORLD_COMPLETE' | 'ENDING_CUTSCENE' | 'GAME_WON' | 'BOSS_GUIDE'>('START_MENU');
+  const [guideStep, setGuideStep] = useState(0);
   const [language, setLanguage] = useState<'en' | 'es'>(() => (localStorage.getItem('vinns_quest_lang') as 'en' | 'es') || 'en');
   const [vinnColor, setVinnColor] = useState(() => localStorage.getItem('vinns_quest_color') || '#00f2ff');
   const [vinn2Color, setVinn2Color] = useState(() => localStorage.getItem('vinns_quest_color2') || '#ff00ff');
@@ -115,8 +162,14 @@ function App() {
       if (vinnRef.current) vinnRef.current.color = vinnColor;
       if (vinn2Ref.current) vinn2Ref.current.color = vinn2Color;
   }, [unlockedProgress, language, vinnColor, vinn2Color, isTwoPlayer]);
-  const [currentWorld, setCurrentWorld] = useState(1);
-  const [currentLevel, setCurrentLevel] = useState(1);
+  const [currentWorld, setCurrentWorld] = useState(() => {
+      const saved = localStorage.getItem('vinns_quest_progress');
+      return saved ? JSON.parse(saved).world : 1;
+  });
+  const [currentLevel, setCurrentLevel] = useState(() => {
+      const saved = localStorage.getItem('vinns_quest_progress');
+      return saved ? JSON.parse(saved).level : 1;
+  });
   const [keys, setKeys] = useState<Record<string, boolean>>({});
   // Merge mobile virtual keys into the keys read by the game loop
   const mergedKeys = isMobile ? { ...keys, ...mobileKeysRef.current } : keys;
@@ -139,10 +192,11 @@ function App() {
   const paintPuddlesRef = useRef<{x: number, w: number, color: string}[]>([]);
   // Ink Colossus battle refs
   const inkProjectilesRef = useRef<{x: number, y: number, vx: number, vy: number}[]>([]);
-  const levelBombsRef = useRef<{x: number, launched: boolean, vx: number, vy: number, lx: number, ly: number}[]>([]);
   const inkIntroTimerRef = useRef(0);
 
-    const advanceCutscene = () => {
+  const inkChase = currentWorld === 3 && currentLevel === 5 && bossRef.current?.type === 'INK_COLOSSUS';
+
+  const advanceCutscene = () => {
         if (gameState === 'INTRO_CUTSCENE') {
             musicRef.current.resume();
             cutsceneRef.current.advanceDialogue();
@@ -204,8 +258,12 @@ function App() {
     
     if (config.isBoss) {
         const startX = config.bossType === 'INK_COLOSSUS' ? -100 : 1200;
-        bossRef.current = new Boss(startX, 460, config.bossType as BossType);
-        if (config.bossType === 'INK_COLOSSUS') bossRef.current.state = 'CHASING';
+        bossRef.current = new Boss(startX, 580, config.bossType as BossType);
+        if (config.bossType === 'INK_COLOSSUS') {
+            bossRef.current.state = 'CHASING';
+            if (!vinnRef.current.hasDoubleJump) vinnRef.current.hasDoubleJump = true;
+            if (isTwoPlayer && !vinn2Ref.current.hasDoubleJump) vinn2Ref.current.hasDoubleJump = true;
+        }
     } else {
         bossRef.current = null;
     }
@@ -215,7 +273,7 @@ function App() {
         const PUDDLE_COLORS = ['#ff00ff', '#00ffff', '#ffff00', '#ff6600', '#00ff88'];
         const puddles: {x: number, w: number, color: string}[] = [];
         const levelLength = config.length as number;
-        let px = 300;
+        let px = 700;
         while (px < levelLength - 200) {
             puddles.push({
                 x: px,
@@ -232,22 +290,25 @@ function App() {
     // Ink Colossus fight setup
     inkProjectilesRef.current = [];
     if (config.isBoss && config.bossType === 'INK_COLOSSUS') {
-        levelBombsRef.current = (config.bombs || []).map((b: {x: number}) => ({
-            x: b.x, launched: false, vx: 0, vy: 0, lx: b.x, ly: 440
-        }));
         vinnRef.current.x = 250; 
         inkIntroTimerRef.current = 0;
         setCurrentWorld(worldIndex);
         setCurrentLevel(levelIndex);
         setGameState('PLAYING');
         return;
-    } else {
-        levelBombsRef.current = [];
     }
 
     setCurrentWorld(worldIndex);
     setCurrentLevel(levelIndex);
     setGameState('PLAYING');
+  };
+
+  const spawnParticles = (x: number, y: number, color?: string) => {
+    for(let i=0; i<8; i++) {
+        particlesRef.current.push({
+            x: x, y: y, vx: (Math.random() - 0.5) * 10, vy: -Math.random() * 10, life: 1, color: color || '#ffcc00'
+        });
+    }
   };
 
   useGameLoop((dt: number) => {
@@ -276,10 +337,16 @@ function App() {
     const levelConfig = world.levels[currentLevel - 1];
     const worldPlatforms = levelConfig.platforms || [];
 
-    const inkChase = currentWorld === 3 && currentLevel === 5 && bossRef.current?.type === 'INK_COLOSSUS';
+    const tutorialPlatforms: Platform[] = [
+        {x: 0, y: 460, w: 800, h: 20, type: 'NORMAL'},
+        {x: 850, y: 460, w: 400, h: 20, type: 'NORMAL'},
+        {x: 1300, y: 460, w: 300, h: 20, type: 'NORMAL'}
+    ];
+    const activePlatforms = gameState === 'TUTORIAL' ? tutorialPlatforms : worldPlatforms;
+    const activeLength = gameState === 'TUTORIAL' ? 1600 : levelConfig.length;
     const anyAiming = vinnRef.current.state === 'AIMING' || vinn2Ref.current.state === 'AIMING';
 
-    const anyAlive = vinnRef.current.health > 0 || (isTwoPlayer && vinn2Ref.current.health > 0);
+    let anyAlive = vinnRef.current.health > 0 || (isTwoPlayer && vinn2Ref.current.health > 0);
     
     // Increment ink boss intro timer during gameplay for 'appearance' sync
     if (inkChase && gameState === 'PLAYING') {
@@ -287,41 +354,51 @@ function App() {
     }
 
     if (gameState === 'PLAYING' || gameState === 'TUTORIAL') {
-      const tutorialPlatforms = [
-          {x: 0, y: 460, w: 800, type: 'NORMAL'},
-          {x: 850, y: 460, w: 400, type: 'NORMAL'},
-          {x: 1300, y: 460, w: 300, type: 'NORMAL'}
-      ] as Platform[];
-      const activePlatforms = gameState === 'TUTORIAL' ? tutorialPlatforms : worldPlatforms;
-      const activeLength = gameState === 'TUTORIAL' ? 1600 : levelConfig.length;
 
       const leadX = isTwoPlayer ? Math.max(vinnRef.current.x, vinn2Ref.current.x) : vinnRef.current.x;
       let minX = 50;
       if (currentWorld === 1 && currentLevel === 5 && leadX > GAME_WIDTH) minX = GAME_WIDTH;
       
       // BOSS VS Trigger
-      if (gameState === 'PLAYING' && currentLevel === 5 && leadX > GAME_WIDTH && bossRef.current && !bossRef.current.introPlayed) {
+      const shouldTriggerVS = gameState === 'PLAYING' && currentLevel === 5 && leadX > GAME_WIDTH && bossRef.current && !bossRef.current.introPlayed;
+      if (shouldTriggerVS) {
           bossRef.current.introPlayed = true;
-          setGameState('BOSS_VS_CUTSCENE');
-          
-          // Timeout to resume gameplay
-          setTimeout(() => {
-              setGameState('PLAYING');
-              if (bossRef.current) bossRef.current.state = bossRef.current.type === 'GOLEM' ? 'FLY_UP' : 'WALKING';
-          }, 3000);
-          return;
+          if (bossRef.current.type !== 'INK_COLOSSUS') {
+              setGameState('BOSS_VS_CUTSCENE');
+              
+              // Timeout to show boss guide
+              setTimeout(() => {
+                  setGameState('BOSS_GUIDE');
+                  setGuideStep(0);
+              }, 3000);
+              return;
+          } else {
+              setGameState('BOSS_GUIDE');
+              setGuideStep(0);
+              return;
+          }
       }
 
       // Ink Colossus: auto-run mode — override Vinn's vx, only jump/attack input allowed
+      const elevatorXTargets = [3200, 6200, 9200, 12200, 15000];
+      const targetElevatorX = elevatorXTargets[bossRef.current?.inkHits || 0];
+      const nearElevator = inkChase && targetElevatorX !== undefined && Math.abs(vinnRef.current.x - (targetElevatorX + 250)) < 240;
       
-      const autoRunKeys = (inkChase && !anyAiming)
+      const isAutoHalted = nearElevator;
+
+      const autoRunKeys = (inkChase && !anyAiming && !isAutoHalted)
           ? { ...mergedKeys, 'd': true, 'a': false, 'arrowright': true, 'arrowleft': false }
           : mergedKeys;
 
       // P1 Update
       vinnRef.current.update(dt, autoRunKeys, activeLength - 50, activePlatforms, gameState === 'TUTORIAL' ? 0.7 : 1.0, minX);
-      if (inkChase && !anyAiming) vinnRef.current.vx = Math.max(vinnRef.current.vx, 5.0);
-      else if (anyAiming) vinnRef.current.vx = 0;
+      if (inkChase && !anyAiming) {
+          if (isAutoHalted) {
+              vinnRef.current.vx = 0;
+          }
+      } else if (anyAiming) {
+          vinnRef.current.vx = 0;
+      }
 
       
       // P2 Update
@@ -344,10 +421,10 @@ function App() {
           }
       }
 
-      const anyAlive = vinnRef.current.health > 0 || (isTwoPlayer && vinn2Ref.current.health > 0);
+      anyAlive = vinnRef.current.health > 0 || (isTwoPlayer && vinn2Ref.current.health > 0);
       
-      if (vinnRef.current.y > 550 && world.theme === 'VOLCANO') vinnRef.current.health = 0;
-      if (isTwoPlayer && vinn2Ref.current.y > 550 && world.theme === 'VOLCANO') vinn2Ref.current.health = 0;
+      if (vinnRef.current.y > 550 && (world.theme === 'VOLCANO' || world.theme === 'PAINT_LAND')) vinnRef.current.health = 0;
+      if (isTwoPlayer && vinn2Ref.current.y > 550 && (world.theme === 'VOLCANO' || world.theme === 'PAINT_LAND')) vinn2Ref.current.health = 0;
 
       // Paint Puddle Slip collision
       if (world.theme === 'PAINT_LAND') {
@@ -375,12 +452,14 @@ function App() {
           const checkCol = (p: any) => !item.collected && Math.abs(p.x - item.x) < 40 && Math.abs(p.y - item.y) < 40;
           if (checkCol(vinnRef.current)) {
               item.collected = true;
-              vinnRef.current.hasDoubleJump = true;
+              if (item.type === 'DOUBLE_JUMP') vinnRef.current.hasDoubleJump = true;
+              else if (item.type === 'RAINBOW') vinnRef.current.speedBoostTimer = 3.0;
               spawnParticles(item.x, item.y, '#fff');
           }
           if (isTwoPlayer && checkCol(vinn2Ref.current)) {
               item.collected = true;
-              vinn2Ref.current.hasDoubleJump = true;
+              if (item.type === 'DOUBLE_JUMP') vinn2Ref.current.hasDoubleJump = true;
+              else if (item.type === 'RAINBOW') vinn2Ref.current.speedBoostTimer = 3.0;
               spawnParticles(item.x, item.y, '#fff');
           }
       });
@@ -459,73 +538,16 @@ function App() {
         }
       }
 
-      if (gameState === 'PLAYING' && currentLevel === 5 && bossRef.current && !bossRef.current.introPlayed) {
-          bossRef.current.introPlayed = true;
-          setGameState('BOSS_VS_CUTSCENE');
-          setTimeout(() => {
-              setGameState('PLAYING');
-              if (bossRef.current) bossRef.current.state = bossRef.current.type === 'GOLEM' ? 'FLY_UP' : 'WALKING';
-          }, 3000);
-          return;
-      }
 
       const leadX = isTwoPlayer ? Math.max(vinnRef.current.x, vinn2Ref.current.x) : vinnRef.current.x;
       
       let targetCamX = Math.max(0, Math.min(levelConfig.length - GAME_WIDTH, leadX - GAME_WIDTH / 2));
       if (inkChase) {
-          // No clamp during infinite chase
-          targetCamX = Math.max(0, leadX - GAME_WIDTH / 2);
-
-          // Treadmill Loop: if player is a bit far, shift EVERYTHING back
-          // We can use 6000 as threshold, shift 4000
-          if (leadX > 6000) {
-              const shift = 4000;
-              vinnRef.current.x -= shift; vinnRef.current.lastSafeX -= shift;
-              vinn2Ref.current.x -= shift; vinn2Ref.current.lastSafeX -= shift;
-              if (bossRef.current) bossRef.current.x -= shift;
-              cameraXRef.current -= shift;
-              targetCamX -= shift;
-              particlesRef.current.forEach(p => p.x -= shift);
-              rocksRef.current.forEach(r => r.x -= shift);
-              paintPuddlesRef.current.forEach(p => p.x -= shift);
-              inkProjectilesRef.current.forEach(p => p.x -= shift);
-              levelBombsRef.current.forEach(b => { b.x -= shift; b.lx -= shift; });
-              bossProjectilesRef.current.forEach(p => p.x -= shift);
-              fireFlamesRef.current.forEach(f => f.x -= shift);
-          }
-
-          // Randomly spawn new things ahead of the player as they go
-          // Puddles: reduced chance from 0.005 to 0.0035, added 600px spacing
-          const furthestPuddle = paintPuddlesRef.current.length > 0
-            ? Math.max(...paintPuddlesRef.current.map(p => p.x)) : 0;
-            
-          if (Math.random() < 0.0035 && furthestPuddle < leadX + 2000) { 
-              const spawnX = Math.max(leadX + 800 + Math.random() * 800, furthestPuddle + 600);
-              paintPuddlesRef.current.push({
-                  x: spawnX,
-                  w: 60 + Math.random() * 80,
-                  color: ['#ff00ff', '#00ffff', '#ffff00'][Math.floor(Math.random()*3)]
-              });
-          }
+          // No clamp during infinite chase originally, but now we respect level boundaries
+          targetCamX = Math.max(0, Math.min(activeLength - GAME_WIDTH, leadX - GAME_WIDTH / 2));
           
-          // Bombs: reduced chance from 0.003 to 0.002, added 1500px spacing
-          const bombsAhead = levelBombsRef.current.filter(b => b.lx > leadX && !b.launched).length;
-          const furthestBomb = levelBombsRef.current.length > 0
-            ? Math.max(...levelBombsRef.current.map(b => b.lx)) : 0;
-
-          if (bombsAhead < 2 && Math.random() < 0.002 && furthestBomb < leadX + 3000) {
-              const spawnX = Math.max(leadX + 1200 + Math.random() * 600, furthestBomb + 1500);
-              levelBombsRef.current.push({
-                  x: spawnX,
-                  launched: false, vx: 0, vy: 0, 
-                  lx: spawnX, 
-                  ly: 440
-              });
-          }
-
           // Cleanup far-behind objects
           paintPuddlesRef.current = paintPuddlesRef.current.filter(p => p.x > cameraXRef.current - 1000);
-          levelBombsRef.current = levelBombsRef.current.filter(b => b.lx > cameraXRef.current - 1000);
           inkProjectilesRef.current = inkProjectilesRef.current.filter(p => p.x > cameraXRef.current - 1000);
       }
       cameraXRef.current += (targetCamX - cameraXRef.current) * 0.1;
@@ -599,7 +621,11 @@ function App() {
                   if (p1A && p2A) bTargetX = d1 < d2 ? vinnRef.current.x : vinn2Ref.current.x;
                   else if (p2A) bTargetX = vinn2Ref.current.x;
               }
-              bossRef.current.update(dt, bTargetX);
+              if (bossRef.current.type === 'INK_COLOSSUS' && inkIntroTimerRef.current < 1.0) {
+                  // Boss stands still waiting for the 1 sec intro
+              } else {
+                  bossRef.current.update(dt, bTargetX);
+              }
               const nextState = bossRef.current.state;
               if (bossRef.current.type === 'BLAZE_KING' && prevState !== nextState) {
                   if (nextState === 'FIRE_SUMMON') {
@@ -652,6 +678,57 @@ function App() {
           if (inkChase && bossRef.current) {
             const boss = bossRef.current;
 
+            // Trigger Rising at Elevators
+            const elevatorXTargets = [3200, 6200, 9200, 12200, 15000];
+            const targetElevatorX = elevatorXTargets[boss.inkHits];
+            const atElevator = targetElevatorX !== undefined && vinnRef.current.x > targetElevatorX && vinnRef.current.x < targetElevatorX + 500;
+            
+            if (atElevator && boss.state === 'CHASING') {
+                if (Math.abs(boss.x - vinnRef.current.x) < 50) {
+                    boss.state = 'RISING';
+                }
+            }
+
+            // Boss rising penalty
+            if (boss.state === 'RISING' && boss.y < 300) {
+                const checkBite = (player: typeof vinnRef.current) => {
+                    if (player.health > 0 && Math.abs(player.x - boss.x) < 400 && player.y > boss.y - 120) {
+                        player.takeDamage(5, player.x > boss.x ? 1 : -1, 15);
+                    }
+                };
+                checkBite(vinnRef.current);
+                if (isTwoPlayer) checkBite(vinn2Ref.current);
+            }
+
+            // Melee attack during RISING
+            const checkMeleeHit = (player: typeof vinnRef.current) => {
+                if (player.state === 'ATTACKING' && player.attackTimer < 0.15) {
+                    if (boss.state === 'RISING' && Math.abs(player.x - boss.x) < 250 && Math.abs(player.y - (boss.y - 100)) < 150) {
+                        boss.inkHits++;
+                        boss.state = 'FALLING';
+                        cameraShakeRef.current = 10;
+                        spawnParticles(boss.x, boss.y - 100, '#ff00ff');
+                    }
+                }
+            };
+            checkMeleeHit(vinnRef.current);
+            if (isTwoPlayer) checkMeleeHit(vinn2Ref.current);
+
+            // Victory
+            if (boss.inkHits >= 5 && vinnRef.current.x >= 15200) {
+               boss.state = 'DEFEATED';
+               boss.health = 0; // Sync health for standard end triggers
+               setTimeout(() => {
+                   if (currentWorld === 3) setGameState('ENDING_CUTSCENE');
+                   else setGameState('WORLD_COMPLETE');
+               }, 1500);
+            }
+
+            // Catch-up if reaching end without hits
+            if (vinnRef.current.x > 15300 && boss.inkHits < 5 && boss.state !== 'DEFEATED') {
+                boss.x += (vinnRef.current.x - 50 - boss.x) * 0.1; // Accelerate to catch
+            }
+
             // Spawn ink projectile when boss throws
             if (boss.throwReady) {
                 boss.throwReady = false;
@@ -669,110 +746,30 @@ function App() {
                 proj.vy += 0.4; // gravity
                 proj.x += proj.vx;
                 proj.y += proj.vy;
-                if (proj.y >= 460) {
-                    // Splat → convert to paint puddle
-                    paintPuddlesRef.current.push({
-                        x: proj.x - 40,
-                        w: 80 + Math.random() * 40,
-                        color: PUDDLE_COLORS_INK[Math.floor(Math.random() * PUDDLE_COLORS_INK.length)]
-                    });
-                    cameraShakeRef.current = 4;
-                    return false;
-                }
+                
+                // Splat on platforms
+                let splatted = false;
+                activePlatforms.forEach(p => {
+                    if (proj.x > p.x && proj.x < p.x + p.w && Math.abs(proj.y - p.y) < 20 && proj.vy > 0) {
+                        splatted = true;
+                        paintPuddlesRef.current.push({
+                            x: proj.x - 40, w: 80 + Math.random() * 40,
+                            color: PUDDLE_COLORS_INK[Math.floor(Math.random() * PUDDLE_COLORS_INK.length)]
+                        });
+                    }
+                });
+
+                if (splatted) { cameraShakeRef.current = 4; return false; }
+                if (proj.y >= 550) return false;
                 return proj.x > cameraXRef.current - 100 && proj.x < cameraXRef.current + 900;
             });
-
           }
-      } // End anyAiming check for updates (boss projectiles, etc)
-
-      // --- INK COLOSSUS AIMING & BOMB PHYSICS (Always update even if world is paused) ---
-      const updateBombAiming = (p: typeof vinnRef.current, attackKey: string) => {
-          const isDown = keys[attackKey];
-          const boss = bossRef.current;
-          if (!inkChase || !boss) return;
-
-          // Start Aiming
-          if (isDown && p.state !== 'AIMING') {
-              levelBombsRef.current.forEach(bomb => {
-                  if (bomb.launched) return;
-                  if (Math.abs(p.x - bomb.lx) < 80 && Math.abs(p.y - bomb.ly) < 60) {
-                      p.state = 'AIMING';
-                      p.aimTimer = 0;
-                      boss.enterBombStun();
-                      boss.bombStunTimer = 0; 
-                  }
-              });
-          }
-
-          // Launch on Release
-          if (!isDown && p.state === 'AIMING') {
-              levelBombsRef.current.forEach(bomb => {
-                  if (bomb.launched) return;
-                  if (Math.abs(p.x - bomb.lx) < 120 && Math.abs(p.y - bomb.ly) < 100) {
-                      bomb.launched = true;
-                      const launchSpeed = 16;
-                      bomb.vx = Math.cos(p.aimAngle) * launchSpeed * p.direction;
-                      bomb.vy = Math.sin(p.aimAngle) * launchSpeed;
-                      p.state = 'IDLE';
-                      spawnParticles(bomb.lx, bomb.ly, '#ffcc00');
-                  }
-              });
-              if (p.state === 'AIMING') p.state = 'IDLE'; 
-          }
-      };
-
-      const attackKey1 = ' ';
-      const attackKey2 = 'enter';
-      updateBombAiming(vinnRef.current, attackKey1);
-      if (isTwoPlayer) updateBombAiming(vinn2Ref.current, attackKey2);
-
-      // Update launched bombs
-      levelBombsRef.current.forEach(bomb => {
-          if (!bomb.launched) return;
-          bomb.vy += 0.5;
-          bomb.lx += bomb.vx;
-          bomb.ly += bomb.vy;
-          if (bomb.ly >= 455) { bomb.ly = 455; bomb.vy *= -0.4; bomb.vx *= 0.85; }
-          if (bossRef.current && Math.abs(bomb.lx - bossRef.current.x) < 80 && Math.abs(bomb.ly - (bossRef.current.y - 100)) < 80) {
-              bossRef.current.enterBombStun();
-              bomb.vx = 0; bomb.vy = 0;
-              spawnParticles(bomb.lx, bomb.ly, '#ff00ff');
-              bomb.launched = false;
-              bomb.lx = -999; 
-          }
-      });
-
-            // Player attacks boss dots during BOMB_STUNNED
-            const boss = bossRef.current;
-            if (boss) {
-                const checkDotHit = (player: typeof vinnRef.current) => {
-                    if (player.state !== 'ATTACKING' || player.attackTimer > 0.15) return;
-                    if (Math.abs(player.x - boss.x) < 150 && Math.abs(player.y - (boss.y - 100)) < 130) {
-                        if (boss.takeBombHit()) {
-                            spawnParticles(boss.x, boss.y - 100, '#ff00ff');
-                            cameraShakeRef.current = 8;
-                        }
-                    }
-                };
-                checkDotHit(vinnRef.current);
-                if (isTwoPlayer) checkDotHit(vinn2Ref.current);
-
-                // Victory — boss defeated
-                if (boss.state === 'DEFEATED' && boss.health <= 0) {
-                    setTimeout(() => setGameState('WORLD_COMPLETE'), 1500);
-                }
-
-                // Camera locks on both player AND boss during stun
-                if (boss.state === 'BOMB_STUNNED') {
-                    const midX = (vinnRef.current.x + boss.x) / 2;
-                    cameraXRef.current += (Math.max(0, midX - 400) - cameraXRef.current) * 0.05;
-                }
-            }
 
       // Boss collision with players (still active but movement frozen if anyAiming)
       if (bossRef.current) {
-          const dx = Math.abs(bossRef.current.x - vinnRef.current.x);
-          const dy = Math.abs(bossRef.current.y - vinnRef.current.y);
+          const boss = bossRef.current;
+          const dx = Math.abs(boss.x - vinnRef.current.x);
+          const dy = Math.abs(boss.y - vinnRef.current.y);
           if (boss.health > 0 && dx < 100 && dy < 100) {
               const isAttacking = boss.state === 'ATTACKING';
               const isPlummeting = boss.state === 'FALLING';
@@ -804,18 +801,11 @@ function App() {
                     vinn2Ref.current.takeDamage(damage, dir, isPlummeting ? 20 : 12);
                     cameraShakeRef.current = boss.type === 'INK_COLOSSUS' ? 5 : 15;
                 }
-            }
-        }
+              }
+          }
+      }
     }
-}
-
-function spawnParticles(x: number, y: number, color?: string) {
-    for(let i=0; i<8; i++) {
-        particlesRef.current.push({
-            x: x, y: y, vx: (Math.random() - 0.5) * 10, vy: -Math.random() * 10, life: 1, color: color || '#ffcc00'
-        });
-    }
-}
+  }
 
     ctx.fillStyle = '#0a0b1e'; // Dark void color
     ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -832,16 +822,16 @@ function spawnParticles(x: number, y: number, color?: string) {
     const camX = cameraXRef.current;
     
     if (gameState === 'START_MENU') {
-        const ctx = canvasRef.current?.getContext('2d');
-        if (ctx) {
-            const grad = ctx.createLinearGradient(0, 0, 0, GAME_HEIGHT);
+        const innerCtx = canvasRef.current?.getContext('2d');
+        if (innerCtx) {
+            const grad = innerCtx.createLinearGradient(0, 0, 0, GAME_HEIGHT);
             grad.addColorStop(0, '#151833');
             grad.addColorStop(1, '#1a1a2e');
-            ctx.fillStyle = grad; 
-            ctx.fillRect(-50, -50, GAME_WIDTH + 100, GAME_HEIGHT + 100); // Oversized for shake
-            ctx.fillStyle = '#10101a'; ctx.fillRect(0, 420, GAME_WIDTH, 80);
+            innerCtx.fillStyle = grad; 
+            innerCtx.fillRect(-50, -50, GAME_WIDTH + 100, GAME_HEIGHT + 100); 
+            innerCtx.fillStyle = '#10101a'; innerCtx.fillRect(0, 420, GAME_WIDTH, 80);
             vinnRef.current.x = GAME_WIDTH / 2; vinnRef.current.y = 420;
-            vinnRef.current.draw(ctx, 0);
+            vinnRef.current.draw(innerCtx, 0);
         }
         return;
     }
@@ -967,9 +957,23 @@ function spawnParticles(x: number, y: number, color?: string) {
 
     itemsRef.current.forEach(item => {
         if (!item.collected) {
-            ctx.save(); ctx.shadowBlur = 15; ctx.shadowColor = '#fff'; ctx.fillStyle = '#fff';
+            ctx.save();
             const hover = Math.sin(Date.now()/200) * 10;
-            ctx.beginPath(); ctx.arc(item.x - camX, item.y + hover, 8, 0, Math.PI*2); ctx.fill();
+            if (item.type === 'DOUBLE_JUMP') {
+                ctx.shadowBlur = 15; ctx.shadowColor = '#fff'; ctx.fillStyle = '#fff';
+                ctx.beginPath(); ctx.arc(item.x - camX, item.y + hover, 8, 0, Math.PI*2); ctx.fill();
+            } else if (item.type === 'RAINBOW') {
+                ctx.fillStyle = `hsl(${(Date.now() % 1000) * 0.36}, 100%, 50%)`;
+                ctx.shadowColor = ctx.fillStyle;
+                ctx.shadowBlur = 15;
+                ctx.beginPath();
+                ctx.moveTo(item.x - camX, item.y + hover - 10);
+                ctx.lineTo(item.x - camX + 8, item.y + hover);
+                ctx.lineTo(item.x - camX, item.y + hover + 10);
+                ctx.lineTo(item.x - camX - 8, item.y + hover);
+                ctx.closePath();
+                ctx.fill();
+            }
             ctx.restore();
         }
     });
@@ -1006,43 +1010,6 @@ function spawnParticles(x: number, y: number, color?: string) {
         ctx.restore();
     });
 
-    // Ink Colossus: draw bombs
-    levelBombsRef.current.forEach(bomb => {
-        if (bomb.lx < -500) return;
-        const sx = bomb.lx - camX;
-        const sy = bomb.ly;
-        const bobble = Math.sin(Date.now() / 300) * 3;
-        ctx.save();
-        ctx.shadowBlur = 12;
-        ctx.shadowColor = '#ffcc00';
-        ctx.fillStyle = '#cc6600';
-        ctx.fillRect(sx - 16, sy - 28 + bobble, 32, 28);
-        ctx.strokeStyle = '#ffcc00';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(sx - 16, sy - 28 + bobble, 32, 28);
-        ctx.font = 'bold 9px monospace';
-        ctx.fillStyle = '#ffcc00';
-        ctx.textAlign = 'center';
-        ctx.fillText('TNT', sx, sy - 12 + bobble);
-        ctx.strokeStyle = '#fff';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.moveTo(sx, sy - 28 + bobble);
-        ctx.lineTo(sx + 5, sy - 36 + bobble);
-        ctx.stroke();
-        ctx.fillStyle = '#ff8800';
-        ctx.shadowColor = '#ff8800';
-        ctx.beginPath();
-        ctx.arc(sx + 5, sy - 38 + bobble, 3, 0, Math.PI*2);
-        ctx.fill();
-        if (!bomb.launched && Math.abs((vinnRef.current.x - camX) - sx) < 80) {
-            ctx.shadowBlur = 0;
-            ctx.font = '9px monospace';
-            ctx.fillStyle = '#ffcc00';
-            ctx.fillText('[ATTACK]', sx, sy - 48 + bobble);
-        }
-        ctx.restore();
-    });
 
     fireFlamesRef.current = fireFlamesRef.current.filter(flame => {
         const playerTarget = isTwoPlayer
@@ -1474,6 +1441,69 @@ function spawnParticles(x: number, y: number, color?: string) {
           </div>
         </div>
       )}
+      {/* Boss Guide Overlay */}
+      {gameState === 'BOSS_GUIDE' && bossRef.current && (
+          <div style={{
+              position: 'absolute', top: 0, left: 0, width: '100%', height: '100%',
+              backgroundColor: 'rgba(0,0,0,0.85)', display: 'flex', flexDirection: 'column',
+              alignItems: 'center', justifyContent: 'center', zIndex: 1000,
+              color: '#fff', textAlign: 'center', fontFamily: 'monospace'
+          }}>
+              {BOSS_GUIDES[bossRef.current.type] && BOSS_GUIDES[bossRef.current.type][guideStep] && (
+                  <div style={{
+                      backgroundColor: '#222', padding: 30, borderRadius: 15, border: '4px solid #555',
+                      width: '60%', maxWidth: 600, display: 'flex', flexDirection: 'column', alignItems: 'center'
+                  }}>
+                      <h2 style={{ color: '#ffcc00', margin: '0 0 15px 0', fontSize: '28px' }}>
+                          {BOSS_GUIDES[bossRef.current.type][guideStep].title}
+                      </h2>
+                      {BOSS_GUIDES[bossRef.current.type][guideStep].img && (
+                          <img 
+                              src={BOSS_GUIDES[bossRef.current.type][guideStep].img} 
+                              alt="Guide" 
+                              style={{ width: '100%', height: 'auto', borderRadius: 8, marginBottom: 20, border: '2px solid #000' }} 
+                          />
+                      )}
+                      <p style={{ fontSize: '18px', lineHeight: 1.5, marginBottom: 30, maxWidth: '90%' }}>
+                          {BOSS_GUIDES[bossRef.current.type][guideStep].text}
+                      </p>
+                      
+                      <div style={{ display: 'flex', gap: 20 }}>
+                          <button 
+                              onClick={() => {
+                                  const guideLen = BOSS_GUIDES[bossRef.current!.type].length;
+                                  if (guideStep + 1 >= guideLen) {
+                                      setGameState('PLAYING');
+                                      if (bossRef.current) {
+                                          if (bossRef.current.type === 'GOLEM') bossRef.current.state = 'FLY_UP';
+                                          else if (bossRef.current.type === 'BLAZE_KING') bossRef.current.state = 'WALKING';
+                                      }
+                                  } else {
+                                      setGuideStep(prev => prev + 1);
+                                  }
+                              }}
+                              style={{
+                                  padding: '10px 30px', fontSize: '20px', fontWeight: 'bold', cursor: 'pointer',
+                                  backgroundColor: '#ffcc00', color: '#000', border: 'none', borderRadius: 8
+                              }}
+                          >
+                              {guideStep + 1 >= BOSS_GUIDES[bossRef.current.type].length ? "LET'S GO!" : "NEXT"}
+                          </button>
+                      </div>
+                      
+                      <div style={{ marginTop: 20, display: 'flex', gap: 8 }}>
+                          {BOSS_GUIDES[bossRef.current.type].map((_, i) => (
+                              <div key={i} style={{
+                                  width: 12, height: 12, borderRadius: '50%',
+                                  backgroundColor: i === guideStep ? '#ffcc00' : '#666'
+                              }} />
+                          ))}
+                      </div>
+                  </div>
+              )}
+          </div>
+      )}
+
     </div>
   );
 }

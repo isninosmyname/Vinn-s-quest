@@ -26,6 +26,7 @@ export class Vinn {
   isAiming: boolean = false;
   aimAngle: number = 0;
   aimTimer: number = 0;
+  speedBoostTimer: number = 0;
 
   lastSafeX: number = 100;
   lastSafeY: number = 400;
@@ -94,6 +95,11 @@ export class Vinn {
 
   update(dt: number, keys: Record<string, boolean>, maxX: number = 2350, platforms: {x: number, y: number, w: number, h: number, type?: 'MUSHROOM' | 'PAINT' | 'NORMAL'}[] = [], speedMult: number = 1.0, minX: number = 50) {
     this.animTimer += dt;
+    
+    if (this.speedBoostTimer > 0) {
+        this.speedBoostTimer -= dt;
+        speedMult *= 1.5;
+    }
     this.currentSpeedScale = speedMult;
 
     if (this.health <= 0) {
@@ -247,8 +253,13 @@ export class Vinn {
   }
 
   draw(ctx: CanvasRenderingContext2D, cameraX: number) {
-    const { x, y, direction, animTimer, state, attackTimer, isHit, isSinking, color, visualType, health } = this;
+    const { x, y, direction, animTimer, state, attackTimer, isHit, isSinking, color, visualType, health, speedBoostTimer } = this;
     const relX = x - cameraX;
+
+    if (speedBoostTimer > 0) {
+        ctx.shadowColor = `hsl(${(animTimer * 500) % 360}, 100%, 50%)`;
+        ctx.shadowBlur = 15;
+    }
     
     if (health <= 0) {
         ctx.save(); ctx.globalAlpha = 0.5; ctx.strokeStyle = '#fff'; ctx.lineWidth = 2;
