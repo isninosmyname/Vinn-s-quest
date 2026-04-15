@@ -1,4 +1,4 @@
-export type CutscenePhase = 'WALK_IN' | 'KNEEL_AND_TALK' | 'PORTAL_OPENS' | 'QUEEN_SUCKED_IN' | 'VINN_JUMPS' | 'FOREST_DROP' | 'TECH_KIDNAP' | 'VINN_LANDING' | 'FINISHED';
+export type CutscenePhase = 'WALK_IN' | 'KNEEL_AND_TALK' | 'PORTAL_OPENS' | 'QUEEN_SUCKED_IN' | 'VINN_JUMPS' | 'FOREST_DROP' | 'TECH_KIDNAP' | 'VINN_LANDING' | 'LATER_SCREEN' | 'BOSS_LAB_INTRO' | 'BOSS_LAB_TALK' | 'GOLEM_LEAVE' | 'COLOSSUS_LEAVE' | 'FINISHED';
 
 export class IntroCutscene {
     vinnX: number = -50;
@@ -15,6 +15,13 @@ export class IntroCutscene {
     isTwoPlayer: boolean = false;
     p1Color: string = '#00f2ff';
     p2Color: string = '#ff00ff';
+    
+    // Boss room positions
+    boss1X: number = 850; // Golem
+    boss2X: number = 150; // Blaze King
+    colossusX: number = 500;
+    colossusY: number = 550; // Starts below
+    
     dialogues: { speaker: string, text: string }[] = [];
     currentDialogue: { speaker: string, text: string } | null = null;
 
@@ -32,7 +39,16 @@ export class IntroCutscene {
         { speaker: 'Vinn', text: 'Ugh... my head...' },
         { speaker: 'Vinn', text: 'WAI... HEY! STOP!' },
         { speaker: 'Vinn', text: 'They are gone... but I can still see their dust trail.' },
-        { speaker: 'Vinn', text: 'I must follow them. Hold on, my Queen!' }
+        { speaker: 'Vinn', text: 'I must follow them. Hold on, my Queen!' },
+        { speaker: 'System', text: 'Later...' },
+        { speaker: 'Ink Colossus', text: 'You are a beautiful flower, my dear. I offer you my hand in marriage.' },
+        { speaker: 'Queen', text: 'NO! Never!' },
+        { speaker: 'Ink Colossus', text: 'And who is going to save you? These walls are thick, and the guards are many.' },
+        { speaker: 'Queen', text: 'Vinn! He will find me and destroy you!' },
+        { speaker: 'Ink Colossus', text: 'Hmph. I\'ll take care of that.' },
+        { speaker: 'Ink Colossus', text: 'Golem! Go to the Forest. If you see a knight, crush him.' },
+        { speaker: 'Golem', text: '...ACKNOWLEDGED. CRUSHING INITIATED.' },
+        { speaker: 'Ink Colossus', text: 'Right... now let\'s take care of your dress. We have a wedding to prepare.' }
     ];
 
     dialogues_es = [
@@ -49,7 +65,16 @@ export class IntroCutscene {
         { speaker: 'Vinn', text: 'Uf... mi cabeza...' },
         { speaker: 'Vinn', text: '¡ESPE... OYE! ¡DETENTE!' },
         { speaker: 'Vinn', text: 'Se han ido... pero aún puedo ver su rastro de polvo.' },
-        { speaker: 'Vinn', text: 'Debo seguirlos. ¡Resiste, mi Reina!' }
+        { speaker: 'Vinn', text: 'Debo seguirlos. ¡Resiste, mi Reina!' },
+        { speaker: 'Sistema', text: 'Luego...' },
+        { speaker: 'Coloso de Tinta', text: 'Eres una flor hermosa, querida. Te ofrezco mi mano en matrimonio.' },
+        { speaker: 'Reina', text: '¡NO! ¡Jamás!' },
+        { speaker: 'Coloso de Tinta', text: '¿Y quién va a salvarte? Estos muros son gruesos y los guardias son muchos.' },
+        { speaker: 'Reina', text: '¡Vinn! ¡Él me encontrará y te destruirá!' },
+        { speaker: 'Coloso de Tinta', text: 'Hmph. Yo me encargaré de eso.' },
+        { speaker: 'Coloso de Tinta', text: '¡Golem! Ve al Bosque. Si ves a un caballero, aplástalo.' },
+        { speaker: 'Golem', text: '...ENTENDIDO. INICIANDO APLASTAMIENTO.' },
+        { speaker: 'Coloso de Tinta', text: 'Bien... ahora ocupémonos de tu vestido. Tenemos una boda que preparar.' }
     ];
 
     constructor() {
@@ -77,7 +102,16 @@ export class IntroCutscene {
             { speaker: 'Vinn', text: 'Ugh... my head...' },
             { speaker: 'Jhon', text: 'Hey! Stop them!' },
             { speaker: 'The Duo', text: 'They are gone... but we can still see their trail.' },
-            { speaker: 'The Duo', text: 'We must follow them. Hold on, my Queen!' }
+            { speaker: 'The Duo', text: 'We must follow them. Hold on, my Queen!' },
+            { speaker: 'System', text: 'Later...' },
+            { speaker: 'Ink Colossus', text: 'You are a beautiful flower, my dear. I offer you my hand in marriage.' },
+            { speaker: 'Queen', text: 'NO! Never!' },
+            { speaker: 'Ink Colossus', text: 'And who is going to save you? These walls are thick, and the guards are many.' },
+            { speaker: 'Queen', text: 'The Duo! They will find me and destroy you!' },
+            { speaker: 'Ink Colossus', text: 'Hmph. I\'ll take care of that.' },
+            { speaker: 'Ink Colossus', text: 'Golem! Go to the Forest. If you see them, crush them.' },
+            { speaker: 'Golem', text: '...ACKNOWLEDGED. CRUSHING INITIATED.' },
+            { speaker: 'Ink Colossus', text: 'Right... now let\'s take care of your dress. We have a wedding to prepare.' }
         ];
 
         const duo_es = [
@@ -95,7 +129,16 @@ export class IntroCutscene {
             { speaker: 'Vinn', text: 'Uf... mi cabeza...' },
             { speaker: 'Jhon', text: '¡Oigan! ¡Deténganlos!' },
             { speaker: 'El Dúo', text: 'Se han ido... pero podemos ver su rastro.' },
-            { speaker: 'El Dúo', text: 'Debemos seguirlos. ¡Resista, mi Reina!' }
+            { speaker: 'El Dúo', text: 'Debemos seguirlos. ¡Resista, mi Reina!' },
+            { speaker: 'Sistema', text: 'Luego...' },
+            { speaker: 'Coloso de Tinta', text: 'Eres una flor hermosa, querida. Te ofrezco mi mano en matrimonio.' },
+            { speaker: 'Reina', text: '¡NO! ¡Jamás!' },
+            { speaker: 'Coloso de Tinta', text: '¿Y quién va a salvarte? Estos muros son gruesos y los guardias son muchos.' },
+            { speaker: 'Reina', text: '¡El Dúo! ¡Ellos me encontrarán y te destruirán!' },
+            { speaker: 'Coloso de Tinta', text: 'Hmph. Yo me encargaré de eso.' },
+            { speaker: 'Coloso de Tinta', text: '¡Golem! Ve al Bosque. Si los ves, aplástalos.' },
+            { speaker: 'Golem', text: '...ENTENDIDO. INICIANDO APLASTAMIENTO.' },
+            { speaker: 'Coloso de Tinta', text: 'Bien... ahora ocupémonos de tu vestido. Tenemos una boda que preparar.' }
         ];
 
         if (is2P) {
@@ -150,7 +193,31 @@ export class IntroCutscene {
                 }
                 break;
             case 'VINN_LANDING':
-                if (this.dialogueIndex >= 14) this.phase = 'FINISHED';
+                if (this.dialogueIndex === 14 && this.timer > 2) {
+                     this.phase = 'LATER_SCREEN'; this.timer = 0; this.dialogueIndex = 15;
+                }
+                break;
+            case 'LATER_SCREEN':
+                if (this.timer > 3) {
+                    this.phase = 'BOSS_LAB_INTRO'; this.timer = 0;
+                    this.queenX = 500; this.queenY = 420;
+                }
+                break;
+            case 'BOSS_LAB_INTRO':
+                this.colossusY += (350 - this.colossusY) * 0.05;
+                if (this.timer > 2) { this.phase = 'BOSS_LAB_TALK'; this.timer = 0; }
+                break;
+            case 'BOSS_LAB_TALK':
+                if (this.dialogueIndex >= 21) { this.phase = 'GOLEM_LEAVE'; this.timer = 0; }
+                break;
+            case 'GOLEM_LEAVE':
+                this.boss1X += 5;
+                if (this.timer > 2) { this.phase = 'COLOSSUS_LEAVE'; this.timer = 0; this.dialogueIndex = 23; }
+                break;
+            case 'COLOSSUS_LEAVE':
+                this.colossusY += 2;
+                this.queenY += 2;
+                if (this.timer > 3) this.phase = 'FINISHED';
                 break;
         }
 
@@ -160,6 +227,8 @@ export class IntroCutscene {
         if (this.dialogueIndex < this.dialogues.length) {
              const currentD = this.dialogues[this.dialogueIndex];
              this.currentDialogue = currentD;
+             
+             if (this.phase === 'LATER_SCREEN') this.currentDialogue = null; // No box during transition
              
              if (this.phase === 'PORTAL_OPENS' && this.dialogueIndex === 3 && this.portalSize > 80) this.advanceDialogue();
              if (this.phase === 'PORTAL_OPENS' && this.dialogueIndex === 4 && this.timer > 4) this.advanceDialogue();
@@ -180,9 +249,26 @@ export class IntroCutscene {
     draw(ctx: CanvasRenderingContext2D) {
         ctx.save();
         
-        const isForest = ['FOREST_DROP', 'TECH_KIDNAP', 'VINN_LANDING'].includes(this.phase);
+        if (this.phase === 'LATER_SCREEN') {
+            ctx.fillStyle = '#000'; ctx.fillRect(0, 0, 1000, 500);
+            ctx.fillStyle = '#fff'; ctx.font = '30px "Press Start 2P"'; ctx.textAlign = 'center';
+            ctx.fillText(this.language === 'en' ? 'Later...' : 'Luego...', 500, 250);
+            ctx.restore();
+            return;
+        }
 
-        if (!isForest) {
+        const isForest = ['FOREST_DROP', 'TECH_KIDNAP', 'VINN_LANDING'].includes(this.phase);
+        const isLab = ['BOSS_LAB_INTRO', 'BOSS_LAB_TALK', 'GOLEM_LEAVE', 'COLOSSUS_LEAVE'].includes(this.phase);
+
+        if (isLab) {
+            this.drawLab(ctx);
+            this.drawGolem(ctx, this.boss1X, 420);
+            this.drawBlazeKing(ctx, this.boss2X, 420);
+            this.drawInkColossus(ctx, this.colossusX, this.colossusY);
+            if (this.phase !== 'COLOSSUS_LEAVE' || this.timer < 3) {
+                this.drawQueen(ctx, this.queenX, this.queenY);
+            }
+        } else if (!isForest) {
             ctx.fillStyle = '#2c1e3d'; ctx.fillRect(0, 0, 1000, 500);
             ctx.fillStyle = '#4a0b2e'; ctx.fillRect(0, 420, 1000, 80);
             
@@ -338,5 +424,56 @@ export class IntroCutscene {
 
     drawThrone(ctx: CanvasRenderingContext2D, x: number, y: number) {
         ctx.save(); ctx.fillStyle = '#b8860b'; ctx.fillRect(x-30, y-50, 60, 80); ctx.fillStyle = '#daa520'; ctx.fillRect(x-35, y+10, 70, 20); ctx.restore();
+    }
+
+    drawLab(ctx: CanvasRenderingContext2D) {
+        ctx.fillStyle = '#050510'; ctx.fillRect(0, 0, 1000, 500);
+        ctx.fillStyle = '#101020'; ctx.fillRect(0, 420, 1000, 80);
+        
+        // Neon pipes/wires
+        ctx.strokeStyle = '#330066'; ctx.lineWidth = 4;
+        for(let i=0; i<5; i++) {
+            ctx.beginPath(); ctx.moveTo(i*200, 0); ctx.lineTo(i*200 + 50, 420); ctx.stroke();
+            ctx.strokeStyle = i % 2 === 0 ? '#ff00ff' : '#00ffff';
+            ctx.beginPath(); ctx.arc(i*200 + 50, 100, 5, 0, Math.PI*2); ctx.stroke();
+        }
+    }
+
+    drawInkColossus(ctx: CanvasRenderingContext2D, x: number, y: number) {
+        ctx.save();
+        ctx.fillStyle = '#000'; ctx.shadowBlur = 30; ctx.shadowColor = '#000';
+        ctx.beginPath();
+        for(let i=0; i<12; i++) {
+            const angle = (i/12) * Math.PI * 2;
+            const r = 120 + Math.sin(Date.now()/200 + i)*20;
+            const tx = x + Math.cos(angle)*r;
+            const ty = y - 100 + Math.sin(angle)*r*0.6;
+            if(i===0) ctx.moveTo(tx, ty); else ctx.lineTo(tx, ty);
+        }
+        ctx.fill();
+        // Dots
+        for(let i=0; i<5; i++) {
+            ctx.fillStyle = '#ff00ff'; ctx.beginPath(); ctx.arc(x - 40 + i*20, y - 100 + Math.sin(Date.now()/500 + i)*15, 8, 0, Math.PI*2); ctx.fill();
+        }
+        ctx.restore();
+    }
+
+    drawGolem(ctx: CanvasRenderingContext2D, x: number, y: number) {
+        ctx.save();
+        ctx.fillStyle = '#4a5d23'; ctx.strokeStyle = '#2d3e12'; ctx.lineWidth = 4;
+        const bounce = Math.sin(Date.now()/400)*5;
+        ctx.fillRect(x-40, y-80+bounce, 80, 80);
+        ctx.fillRect(x-20, y-105+bounce, 40, 40);
+        ctx.fillStyle = '#00ffcc'; ctx.beginPath(); ctx.arc(x-10, y-90+bounce, 3, 0, Math.PI*2); ctx.arc(x+10, y-90+bounce, 3, 0, Math.PI*2); ctx.fill();
+        ctx.restore();
+    }
+
+    drawBlazeKing(ctx: CanvasRenderingContext2D, x: number, y: number) {
+        ctx.save();
+        const flicker = Math.random()*10;
+        const grad = ctx.createRadialGradient(x, y-50, 5, x, y-50, 40+flicker);
+        grad.addColorStop(0, '#fff'); grad.addColorStop(0.3, '#ffcc00'); grad.addColorStop(1, 'transparent');
+        ctx.fillStyle = grad; ctx.beginPath(); ctx.arc(x, y-50, 40+flicker, 0, Math.PI*2); ctx.fill();
+        ctx.restore();
     }
 }

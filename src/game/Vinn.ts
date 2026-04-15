@@ -26,10 +26,12 @@ export class Vinn {
   isAiming: boolean = false;
   aimAngle: number = 0;
   aimTimer: number = 0;
-  speedBoostTimer: number = 0;
-
   lastSafeX: number = 100;
   lastSafeY: number = 400;
+
+  jumpCharges: number = 0;
+  maxJumpCharges: number = 3;
+  rechargeTimer: number = 0;
 
   headRadius = 12;
   spineLength = 35;
@@ -51,6 +53,20 @@ export class Vinn {
     this.playerName = name;
     this.lastSafeX = x;
     this.lastSafeY = y;
+  }
+
+  reset(x: number, y: number) {
+      this.x = x;
+      this.y = y;
+      this.vx = 0;
+      this.vy = 0;
+      this.health = this.maxHealth;
+      this.state = 'IDLE';
+      this.onGround = true;
+      this.isHit = false;
+      this.hitTimer = 0;
+      this.isSinking = false;
+      this.isSlipping = false;
   }
 
   takeDamage(amount: number, knockbackDir?: number, knockbackForce: number = 10) {
@@ -84,11 +100,10 @@ export class Vinn {
       this.vy = -12;
       this.onGround = false;
       this.isSinking = false;
-      this.canDoubleJump = this.hasDoubleJump;
       this.state = 'JUMPING';
-    } else if (this.canDoubleJump) {
+    } else if (this.jumpCharges > 0) {
       this.vy = -10;
-      this.canDoubleJump = false;
+      this.jumpCharges--;
       this.state = 'JUMPING';
     }
   }
@@ -101,6 +116,17 @@ export class Vinn {
         speedMult *= 1.5;
     }
     this.currentSpeedScale = speedMult;
+
+    // Recharge logic: 1 charge every 4 seconds
+    if (this.jumpCharges < this.maxJumpCharges) {
+        this.rechargeTimer += dt;
+        if (this.rechargeTimer >= 4.0) {
+            this.jumpCharges++;
+            this.rechargeTimer = 0;
+        }
+    } else {
+        this.rechargeTimer = 0;
+    }
 
     if (this.health <= 0) {
         if (keys[' ']) {
@@ -252,19 +278,19 @@ export class Vinn {
     }
   }
 
-  draw(ctx: CanvasRenderingContext2D, cameraX: number) {
+  draw(ctx: CanvasRenderingContext2D, cameraX: number, cameraY: number = 0) {
     const { x, y, direction, animTimer, state, attackTimer, isHit, isSinking, color, visualType, health, speedBoostTimer } = this;
     const relX = x - cameraX;
+    const relY = y - cameraY;
 
     if (speedBoostTimer > 0) {
         ctx.shadowColor = `hsl(${(animTimer * 500) % 360}, 100%, 50%)`;
         ctx.shadowBlur = 15;
     }
-    
-    if (health <= 0) {
+     if (health <= 0) {
         ctx.save(); ctx.globalAlpha = 0.5; ctx.strokeStyle = '#fff'; ctx.lineWidth = 2;
-        ctx.beginPath(); ctx.arc(relX, y, 10, 0, Math.PI*2); ctx.stroke();
-        ctx.strokeRect(relX - 10, y + 15, 20, 2);
+        ctx.beginPath(); ctx.arc(relX, relY, 10, 0, Math.PI*2); ctx.stroke();
+        ctx.strokeRect(relX - 10, relY + 15, 20, 2);
         ctx.restore(); return;
     }
 
@@ -281,7 +307,7 @@ export class Vinn {
         ctx.shadowColor = color;
 
         const dir = this.direction;
-        const fy = y + 28; // ground level for the horizontal body
+        const fy = relY + 28; // ground level for the horizontal body
 
         // Head (circle on the side)
         ctx.beginPath();
@@ -335,7 +361,7 @@ export class Vinn {
 
     ctx.beginPath();
     let headYOffset = this.spineLength + this.headRadius + idleCycle;
-    const headY = y - headYOffset;
+    const headY = relY - headYOffset;
     if (isSinking) headYOffset -= Math.sin(animTimer * 2) * 2;
     ctx.arc(relX, headY, this.headRadius, 0, Math.PI * 2);
     ctx.stroke();
@@ -352,8 +378,8 @@ export class Vinn {
     }
 
     ctx.lineWidth = 4;
-    const neckY = y - this.spineLength - (isSinking ? 0 : idleCycle);
-    const hipY = y;
+    const neckY = relY - this.spineLength - (isSinking ? 0 : idleCycle);
+    const hipY = relY;
     ctx.beginPath();
     ctx.moveTo(relX, neckY);
     ctx.lineTo(relX, hipY);
@@ -416,7 +442,7 @@ export class Vinn {
     if (this.state === 'AIMING') {
         const retDistance = 140;
         const retX = relX + Math.cos(this.aimAngle) * retDistance * this.direction;
-        const retY = y - 30 + Math.sin(this.aimAngle) * retDistance;
+        const retY = relY - 30 + Math.sin(this.aimAngle) * retDistance;
         
         // Draw dotted guide line
         ctx.save();
@@ -424,7 +450,7 @@ export class Vinn {
         ctx.strokeStyle = 'rgba(255, 204, 0, 0.4)';
         ctx.lineWidth = 2;
         ctx.beginPath();
-        ctx.moveTo(relX, y - 30);
+        ctx.moveTo(relX, relY - 30);
         ctx.lineTo(retX, retY);
         ctx.stroke();
         ctx.restore();
