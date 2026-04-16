@@ -3,7 +3,7 @@ import { Vinn } from './game/Vinn';
 import { Enemy } from './game/Enemy';
 import { Boss } from './game/Boss';
 import type { BossType } from './game/Boss';
-import { IntroCutscene } from './game/Cutscene';
+import { IntroCutscene, World1ClearCutscene } from './game/Cutscene';
 import { EndingCutscene } from './game/EndingCutscene';
 import { MusicManager } from './game/SoundEngine';
 import { useGameLoop } from './game/useGameLoop';
@@ -127,7 +127,7 @@ const MINIGAME_CONFIGS = [
 function App() {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const [tutorialPhase, setTutorialPhase] = useState(0);
-    const [gameState, setGameState] = useState<'START_MENU' | 'SETTINGS' | 'LEVEL_SELECTOR' | 'INTRO_CUTSCENE' | 'TUTORIAL' | 'PLAYING' | 'BOSS_VS_CUTSCENE' | 'INK_BOSS_INTRO' | 'GAMEOVER' | 'LEVEL_TRANSITION' | 'WORLD_COMPLETE' | 'ENDING_CUTSCENE' | 'GAME_WON' | 'BOSS_GUIDE' | 'MINIGAME_SELECTOR' | 'MG_MUSHROOM_JUMP' | 'MG_STONE_SMASH' | 'MG_ESCAPE' | 'MG_GAMEOVER'>('START_MENU');
+    const [gameState, setGameState] = useState<'START_MENU' | 'SETTINGS' | 'LEVEL_SELECTOR' | 'INTRO_CUTSCENE' | 'TUTORIAL' | 'PLAYING' | 'BOSS_VS_CUTSCENE' | 'INK_BOSS_INTRO' | 'GAMEOVER' | 'LEVEL_TRANSITION' | 'WORLD_COMPLETE' | 'ENDING_CUTSCENE' | 'WORLD1_INTERLUDE' | 'GAME_WON' | 'BOSS_GUIDE' | 'MINIGAME_SELECTOR' | 'MG_MUSHROOM_JUMP' | 'MG_STONE_SMASH' | 'MG_ESCAPE' | 'MG_GAMEOVER'>('START_MENU');
     const [guideStep, setGuideStep] = useState(0);
     const [mgScore, setMgScore] = useState(0);
     const [mgHighScores, setMgHighScores] = useState<{ mushroom: number, stone: number, escape: number }>(() => {
@@ -150,6 +150,7 @@ function App() {
     const fireFlamesRef = useRef<{ type: 'FLAME', x: number, y: number, vx: number, vy: number, life: number }[]>([]);
     const bossProjectilesRef = useRef<{ type: 'FIREBALL' | 'LAVA', x: number, y: number, vx: number, vy: number, life: number }[]>([]);
     const cutsceneRef = useRef<IntroCutscene>(new IntroCutscene());
+    const interlude1Ref = useRef<World1ClearCutscene | null>(null);
     const endingRef = useRef<EndingCutscene>(new EndingCutscene());
     const musicRef = useRef<MusicManager>(new MusicManager());
     const cameraXRef = useRef(0);
@@ -223,6 +224,8 @@ function App() {
         if (gameState === 'INTRO_CUTSCENE') {
             musicRef.current.resume();
             cutsceneRef.current.advanceDialogue();
+        } else if (gameState === 'WORLD1_INTERLUDE' && interlude1Ref.current) {
+            interlude1Ref.current.advanceDialogue();
         } else if (gameState === 'ENDING_CUTSCENE') {
             endingRef.current.advanceDialogue();
         } else if (gameState === 'INK_BOSS_INTRO') {
@@ -683,6 +686,15 @@ function App() {
                 musicRef.current.stop();
                 setGameState('TUTORIAL');
             }
+        } else if (gameState === 'WORLD1_INTERLUDE' && interlude1Ref.current) {
+            const finished = interlude1Ref.current.update(dt);
+            if (finished === true) {
+                // Direct to World 2 as requested
+                setCurrentWorld(2);
+                setCurrentLevel(1);
+                setUnlockedProgress(prev => ({ world: 2, level: 1 }));
+                setGameState('LEVEL_SELECTOR');
+            }
         } else if (gameState === 'ENDING_CUTSCENE') {
             const finished = endingRef.current.update(dt);
             musicRef.current.update(endingRef.current.phase);
@@ -695,8 +707,14 @@ function App() {
         if (gameState === 'PLAYING') {
             const isInkBossActive = currentWorld === 3 && currentLevel === 5 && bossRef.current?.state && bossRef.current.state !== 'DEFEATED';
 
-            if (isInkBossActive) {
-                musicRef.current.update('BUT_SCREEN');
+            const isBossActive = levelConfig.isBoss && bossRef.current?.state && bossRef.current.state !== 'DEFEATED';
+            
+            if (isBossActive && bossRef.current) {
+                const healthPercent = bossRef.current.health / bossRef.current.maxHealth;
+                if ((musicRef.current as any).setIntensity) {
+                    musicRef.current.setIntensity(healthPercent);
+                }
+                musicRef.current.update('BOSS_BATTLE');
             } else if (currentWorld === 1) {
                 musicRef.current.update('FOREST_WORLD');
             } else if (currentWorld === 2) {
@@ -742,8 +760,13 @@ function App() {
                 if (!levelConfig.isBoss) {
                     if (currentLevel < 5) setGameState('LEVEL_TRANSITION');
                 } else if (bossRef.current && bossRef.current.health <= 0) {
-                    if (currentWorld < 3) setGameState('WORLD_COMPLETE');
-                    else {
+                    if (currentWorld === 1) {
+                        interlude1Ref.current = new World1ClearCutscene();
+                        interlude1Ref.current.setLanguage(language);
+                        setGameState('WORLD1_INTERLUDE');
+                    } else if (currentWorld < 3) {
+                        setGameState('WORLD_COMPLETE');
+                    } else {
                         setGameState('ENDING_CUTSCENE');
                     }
                 }
@@ -1047,6 +1070,10 @@ function App() {
         }
         if (gameState === 'INTRO_CUTSCENE') {
             cutsceneRef.current.draw(ctx);
+            return;
+        }
+        if (gameState === 'WORLD1_INTERLUDE' && interlude1Ref.current) {
+            interlude1Ref.current.draw(ctx);
             return;
         }
         if (gameState === 'ENDING_CUTSCENE') {

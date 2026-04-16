@@ -4,10 +4,12 @@ export class MusicManager {
     private gain: GainNode | null = null;
     private nextNoteTime: number = 0;
     private noteIndex: number = 0;
+    private intensity: number = 0; // 0, 1, 2
 
     private NOTES: Record<string, number> = {
-        'C3': 130.81, 'D3': 146.83, 'E3': 164.81, 'F3': 174.61, 'G3': 196.00, 'A3': 220.00, 'B3': 246.94,
-        'C4': 261.63, 'D4': 293.66, 'E4': 329.63, 'F4': 349.23, 'G4': 392.00, 'A4': 440.00, 'B4': 493.88,
+        'C2': 65.41, 'D2': 73.42, 'E2': 82.41, 'F2': 87.31, 'G2': 98.00, 'A2': 110.00, 'B2': 123.47, 'Bb2': 116.54,
+        'C3': 130.81, 'D3': 146.83, 'E3': 164.81, 'F3': 174.61, 'G3': 196.00, 'A3': 220.00, 'B3': 246.94, 'Bb3': 233.08,
+        'C4': 261.63, 'D4': 293.66, 'E4': 329.63, 'F4': 349.23, 'G4': 392.00, 'A4': 440.00, 'B4': 493.88, 'G#4': 415.30, 'Bb4': 466.16, 'Eb4': 311.13,
         'C5': 523.25, 'D5': 587.33, 'E5': 659.25, 'F5': 698.46, 'G5': 783.99, 'A5': 880.00, 'B5': 987.77,
     };
 
@@ -109,6 +111,32 @@ export class MusicManager {
         { lead: 'F#4', bass: 'C3', perc: 'H', len: 0.3 },
         { lead: 'A4', bass: 'F#2', perc: 'S', len: 0.3 }
     ];
+    private BOSS_MEGALO_THEME = [
+        // The iconic riff
+        { lead: 'D4', bass: 'D3', perc: 'H', len: 0.12 }, { lead: 'D4', bass: 'D3', perc: null, len: 0.12 },
+        { lead: 'D5', bass: 'D3', perc: 'S', len: 0.24 }, { lead: 'A4', bass: 'D3', perc: null, len: 0.24 },
+        { lead: 'G#4', bass: 'D3', perc: 'H', len: 0.12 }, { lead: 'G4', bass: 'D3', perc: null, len: 0.12 },
+        { lead: 'F4', bass: 'D3', perc: 'S', len: 0.12 }, { lead: 'D4', bass: 'D3', perc: null, len: 0.12 },
+        { lead: 'F4', bass: 'D3', perc: 'H', len: 0.12 }, { lead: 'G4', bass: 'D3', perc: null, len: 0.12 },
+
+        { lead: 'C4', bass: 'C3', perc: 'H', len: 0.12 }, { lead: 'C4', bass: 'C3', perc: null, len: 0.12 },
+        { lead: 'D5', bass: 'C3', perc: 'S', len: 0.24 }, { lead: 'A4', bass: 'C3', perc: null, len: 0.24 },
+        { lead: 'G#4', bass: 'C3', perc: 'H', len: 0.12 }, { lead: 'G4', bass: 'C3', perc: null, len: 0.12 },
+        { lead: 'F4', bass: 'C3', perc: 'S', len: 0.12 }, { lead: 'D4', bass: 'C3', perc: null, len: 0.12 },
+        { lead: 'F4', bass: 'C3', perc: 'H', len: 0.12 }, { lead: 'G4', bass: 'C3', perc: null, len: 0.12 },
+
+        { lead: 'B3', bass: 'B2', perc: 'H', len: 0.12 }, { lead: 'B3', bass: 'B2', perc: null, len: 0.12 },
+        { lead: 'D5', bass: 'B2', perc: 'S', len: 0.24 }, { lead: 'A4', bass: 'B2', perc: null, len: 0.24 },
+        { lead: 'G#4', bass: 'B2', perc: 'H', len: 0.12 }, { lead: 'G4', bass: 'B2', perc: null, len: 0.12 },
+        { lead: 'F4', bass: 'B2', perc: 'S', len: 0.12 }, { lead: 'D4', bass: 'B2', perc: null, len: 0.12 },
+        { lead: 'F4', bass: 'B2', perc: 'H', len: 0.12 }, { lead: 'G4', bass: 'B2', perc: null, len: 0.12 },
+
+        { lead: 'Bb3', bass: 'Bb2', perc: 'H', len: 0.12 }, { lead: 'Bb3', bass: 'Bb2', perc: null, len: 0.12 },
+        { lead: 'D5', bass: 'Bb2', perc: 'S', len: 0.24 }, { lead: 'A4', bass: 'Bb2', perc: null, len: 0.24 },
+        { lead: 'G#4', bass: 'Bb2', perc: 'H', len: 0.12 }, { lead: 'G4', bass: 'Bb2', perc: null, len: 0.12 },
+        { lead: 'F4', bass: 'Bb2', perc: 'S', len: 0.12 }, { lead: 'D4', bass: 'Bb2', perc: null, len: 0.12 },
+        { lead: 'F4', bass: 'Bb2', perc: 'H', len: 0.12 }, { lead: 'G4', bass: 'Bb2', perc: null, len: 0.12 }
+    ];
 
     constructor() {}
 
@@ -125,6 +153,12 @@ export class MusicManager {
         if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume();
     }
 
+    public setIntensity(percent: number) {
+        if (percent > 0.7) this.intensity = 0;
+        else if (percent > 0.3) this.intensity = 1;
+        else this.intensity = 2;
+    }
+
     public update(phase: string) {
         this.init();
         this.resume();
@@ -137,6 +171,7 @@ export class MusicManager {
         else if (phase === 'FOREST_WORLD') targetTrack = 'FOREST_THEME';
         else if (phase === 'VOLCANO_WORLD') targetTrack = 'VOLCANO_THEME';
         else if (phase === 'PAINT_WORLD') targetTrack = 'PAINT_THEME';
+        else if (phase === 'BOSS_BATTLE') targetTrack = 'BOSS_BATTLE';
         else if (phase === 'VINN_STUNNED') targetTrack = null; 
 
         if (targetTrack !== this.currentTrack) {
@@ -177,18 +212,29 @@ export class MusicManager {
         else if (this.currentTrack === 'FOREST_THEME') melody = this.FOREST_THEME;
         else if (this.currentTrack === 'VOLCANO_THEME') melody = this.VOLCANO_THEME;
         else if (this.currentTrack === 'PAINT_THEME') melody = this.PAINT_THEME;
+        else if (this.currentTrack === 'BOSS_BATTLE') melody = this.BOSS_MEGALO_THEME;
         else melody = this.STINGER_THEME;
         const step = melody[this.noteIndex];
         const time = this.ctx.currentTime;
 
         this.playOsc(step.lead, time, step.len, this.currentTrack === 'ROYAL' ? 'triangle' : 'square', 0.1);
         
+        // Intensity 2: Add high harmony
+        if (this.currentTrack === 'BOSS_BATTLE' && this.intensity >= 2) {
+            this.playOsc(step.lead, time, step.len, 'square', 0.05, 2.0); // An octave up
+        }
+
         if (step.bass) {
-            this.playOsc(step.bass, time, step.len, 'sine', 0.08);
+            // Intensity 1+: Add bass
+            const skipBass = this.currentTrack === 'BOSS_BATTLE' && this.intensity < 1;
+            if (!skipBass) {
+                this.playOsc(step.bass, time, step.len, 'sine', 0.08);
+            }
         }
 
         if (step.perc === 'S') {
-            this.playNoise(time, 0.1, 0.05);
+            const skipS = this.currentTrack === 'BOSS_BATTLE' && this.intensity < 1;
+            if (!skipS) this.playNoise(time, 0.1, 0.05);
         } else if (step.perc === 'H') {
             this.playNoise(time, 0.03, 0.02);
         }
@@ -197,9 +243,9 @@ export class MusicManager {
         this.noteIndex = (this.noteIndex + 1) % melody.length;
     }
 
-    private playOsc(note: string, time: number, len: number, type: OscillatorType, vol: number) {
+    private playOsc(note: string, time: number, len: number, type: OscillatorType, vol: number, mult: number = 1.0) {
         if (!this.ctx || !this.gain) return;
-        const freq = this.NOTES[note] || 440;
+        const freq = (this.NOTES[note] || 440) * mult;
         const osc = this.ctx.createOscillator();
         const g = this.ctx.createGain();
 

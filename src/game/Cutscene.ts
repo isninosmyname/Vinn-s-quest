@@ -150,7 +150,38 @@ export class IntroCutscene {
 
     update(dt: number): boolean | { speaker: string, text: string } | null {
         this.timer += dt;
-        
+
+        // --- Milestone-based phase synchronization ---
+        // This ensures animations stay in parity with dialogue if user skips fast
+        if (this.dialogueIndex >= 23) {
+            this.phase = 'FINISHED';
+        } else if (this.dialogueIndex >= 21) {
+            if (this.phase !== 'GOLEM_LEAVE' && this.phase !== 'COLOSSUS_LEAVE') this.phase = 'GOLEM_LEAVE';
+        } else if (this.dialogueIndex >= 16) {
+            this.phase = 'BOSS_LAB_TALK';
+            this.colossusY = 350; // Snap Colossus into position
+            this.queenX = 500; this.queenY = 420;
+        } else if (this.dialogueIndex >= 15) {
+            if (this.phase !== 'BOSS_LAB_INTRO' && this.phase !== 'BOSS_LAB_TALK' && this.phase !== 'GOLEM_LEAVE' && this.phase !== 'COLOSSUS_LEAVE') {
+                this.phase = 'LATER_SCREEN';
+            }
+        } else if (this.dialogueIndex >= 10) {
+            this.phase = 'VINN_LANDING';
+            this.vinnY = 420; // Snap to ground
+        } else if (this.dialogueIndex >= 8) {
+            this.phase = 'TECH_KIDNAP';
+        } else if (this.dialogueIndex >= 7) {
+            if (this.phase === 'VINN_JUMPS' || this.phase === 'QUEEN_SUCKED_IN' || this.phase === 'PORTAL_OPENS' || this.phase === 'KNEEL_AND_TALK' || this.phase === 'WALK_IN') {
+                this.phase = 'FOREST_DROP';
+                this.vinnX = 200; this.vinnY = 420; this.queenX = 400; this.queenY = 420;
+            }
+        } else if (this.dialogueIndex >= 5) {
+            if (this.phase === 'WALK_IN' || this.phase === 'KNEEL_AND_TALK') {
+                this.phase = 'PORTAL_OPENS';
+                this.portalSize = 150;
+            }
+        }
+
         switch (this.phase) {
             case 'WALK_IN':
                 if (this.vinnX < 550) this.vinnX += 2.5;
@@ -162,62 +193,65 @@ export class IntroCutscene {
             case 'PORTAL_OPENS':
                 if (this.portalSize < 150) this.portalSize += 1.5;
                 this.portalAngle += 0.05;
-                if (this.dialogueIndex >= 5) { this.phase = 'QUEEN_SUCKED_IN'; this.timer = 0; }
+                if (this.dialogueIndex >= 5 || this.timer > 5) { this.phase = 'QUEEN_SUCKED_IN'; this.timer = 0; }
                 break;
             case 'QUEEN_SUCKED_IN':
                 this.portalAngle += 0.1;
                 this.queenX += (700 - this.queenX) * 0.1;
                 this.queenY += (200 - this.queenY) * 0.1;
-                if (this.timer > 2 && this.dialogueIndex >= 6) { this.phase = 'VINN_JUMPS'; this.timer = 0; }
+                if ((this.timer > 2 && this.dialogueIndex >= 6) || this.dialogueIndex >= 7) { 
+                    this.phase = 'VINN_JUMPS'; this.timer = 0; 
+                }
                 break;
             case 'VINN_JUMPS':
                 this.portalAngle += 0.2;
                 this.vinnX += (700 - this.vinnX) * 0.05;
                 this.vinnY += (200 - this.vinnY) * 0.05;
-                if (this.timer > 2.5) { this.phase = 'FOREST_DROP'; this.timer = 0; this.dialogueIndex = 7; 
+                if (this.timer > 2.5 || this.dialogueIndex >= 7) { 
+                    this.phase = 'FOREST_DROP'; this.timer = 0; this.dialogueIndex = Math.max(7, this.dialogueIndex);
                     this.vinnX = 200; this.vinnY = -100; this.queenX = 400; this.queenY = -100;
                 }
                 break;
             case 'FOREST_DROP':
                 if (this.queenY < 420) this.queenY += 5;
                 if (this.vinnY < 420) this.vinnY += 5;
-                if (this.timer > 2 && this.dialogueIndex === 7) { 
-                    this.phase = 'TECH_KIDNAP'; this.timer = 0; this.dialogueIndex = 8;
+                if ((this.timer > 2 && this.dialogueIndex === 7) || this.dialogueIndex >= 8) { 
+                    this.phase = 'TECH_KIDNAP'; this.timer = 0; this.dialogueIndex = Math.max(8, this.dialogueIndex);
                 }
                 break;
             case 'TECH_KIDNAP':
                 if (this.timer > 1.5 && this.dialogueIndex === 8) this.advanceDialogue();
                 if (this.dialogueIndex === 9) {
                     this.queenX += 4;
-                    if (this.queenX > 900) { this.phase = 'VINN_LANDING'; this.timer = 0; this.dialogueIndex = 10; }
+                    if (this.queenX > 1200) { this.phase = 'VINN_LANDING'; this.timer = 0; this.dialogueIndex = 10; }
                 }
                 break;
             case 'VINN_LANDING':
-                if (this.dialogueIndex === 14 && this.timer > 2) {
-                     this.phase = 'LATER_SCREEN'; this.timer = 0; this.dialogueIndex = 15;
+                if ((this.dialogueIndex === 14 && this.timer > 2) || this.dialogueIndex >= 15) {
+                     this.phase = 'LATER_SCREEN'; this.timer = 0; this.dialogueIndex = Math.max(15, this.dialogueIndex);
                 }
                 break;
             case 'LATER_SCREEN':
-                if (this.timer > 3) {
+                if (this.timer > 3 || this.dialogueIndex >= 16) {
                     this.phase = 'BOSS_LAB_INTRO'; this.timer = 0;
                     this.queenX = 500; this.queenY = 420;
                 }
                 break;
             case 'BOSS_LAB_INTRO':
                 this.colossusY += (350 - this.colossusY) * 0.05;
-                if (this.timer > 2) { this.phase = 'BOSS_LAB_TALK'; this.timer = 0; }
+                if (this.timer > 2 || this.dialogueIndex >= 16) { this.phase = 'BOSS_LAB_TALK'; this.timer = 0; }
                 break;
             case 'BOSS_LAB_TALK':
                 if (this.dialogueIndex >= 21) { this.phase = 'GOLEM_LEAVE'; this.timer = 0; }
                 break;
             case 'GOLEM_LEAVE':
                 this.boss1X += 5;
-                if (this.timer > 2) { this.phase = 'COLOSSUS_LEAVE'; this.timer = 0; this.dialogueIndex = 23; }
+                if (this.timer > 2 || this.dialogueIndex >= 23) { this.phase = 'COLOSSUS_LEAVE'; this.timer = 0; this.dialogueIndex = Math.max(23, this.dialogueIndex); }
                 break;
             case 'COLOSSUS_LEAVE':
                 this.colossusY += 2;
                 this.queenY += 2;
-                if (this.timer > 3) this.phase = 'FINISHED';
+                if (this.timer > 3 || this.phase as any === 'FINISHED') this.phase = 'FINISHED';
                 break;
         }
 
@@ -250,7 +284,7 @@ export class IntroCutscene {
         ctx.save();
         
         if (this.phase === 'LATER_SCREEN') {
-            ctx.fillStyle = '#000'; ctx.fillRect(0, 0, 1000, 500);
+            ctx.fillStyle = '#000'; ctx.fillRect(0, 0, 2000, 500);
             ctx.fillStyle = '#fff'; ctx.font = '30px "Press Start 2P"'; ctx.textAlign = 'center';
             ctx.fillText(this.language === 'en' ? 'Later...' : 'Luego...', 500, 250);
             ctx.restore();
@@ -269,8 +303,8 @@ export class IntroCutscene {
                 this.drawQueen(ctx, this.queenX, this.queenY);
             }
         } else if (!isForest) {
-            ctx.fillStyle = '#2c1e3d'; ctx.fillRect(0, 0, 1000, 500);
-            ctx.fillStyle = '#4a0b2e'; ctx.fillRect(0, 420, 1000, 80);
+            ctx.fillStyle = '#2c1e3d'; ctx.fillRect(0, 0, 2000, 500);
+            ctx.fillStyle = '#4a0b2e'; ctx.fillRect(0, 420, 2000, 80);
             
             if (this.phase !== 'WALK_IN' && this.phase !== 'KNEEL_AND_TALK' || this.dialogueIndex >= 3) {
                 ctx.fillStyle = '#0a0510'; ctx.fillRect(600, 50, 180, 300);
@@ -287,20 +321,20 @@ export class IntroCutscene {
             }
             this.drawThrone(ctx, 600, 420);
         } else {
-            ctx.fillStyle = '#1a2e1a'; ctx.fillRect(0, 0, 1000, 500);
-            ctx.fillStyle = '#0f1a0f'; ctx.fillRect(0, 420, 1000, 80);
+            ctx.fillStyle = '#1a2e1a'; ctx.fillRect(0, 0, 2000, 500);
+            ctx.fillStyle = '#0f1a0f'; ctx.fillRect(0, 420, 2000, 80);
             
             ctx.fillStyle = '#0a140a';
-            for(let i=0; i<8; i++) {
+            for(let i=0; i<15; i++) {
                 ctx.fillRect(i*120 + 20, 100, 30, 320);
                 ctx.beginPath(); ctx.moveTo(i*120, 150); ctx.lineTo(i*120+35, 50); ctx.lineTo(i*120+70, 150); ctx.fill();
             }
         }
 
-        if (this.phase !== 'FINISHED' && this.phase !== 'VINN_JUMPS') {
+        if (this.phase !== 'FINISHED' && this.phase !== 'VINN_JUMPS' && !isLab) {
             this.drawQueen(ctx, this.queenX, this.queenY);
         }
-        if (this.phase !== 'FINISHED') {
+        if (this.phase !== 'FINISHED' && !isLab) {
             this.drawHero(ctx, this.vinnX, this.vinnY, this.p1Color, 'NORMAL');
             if (this.isTwoPlayer) {
                 this.drawHero(ctx, this.vinnX - 40, this.vinnY, this.p2Color, 'SPIKY');
@@ -427,12 +461,12 @@ export class IntroCutscene {
     }
 
     drawLab(ctx: CanvasRenderingContext2D) {
-        ctx.fillStyle = '#050510'; ctx.fillRect(0, 0, 1000, 500);
-        ctx.fillStyle = '#101020'; ctx.fillRect(0, 420, 1000, 80);
+        ctx.fillStyle = '#050510'; ctx.fillRect(0, 0, 2000, 500);
+        ctx.fillStyle = '#101020'; ctx.fillRect(0, 420, 2000, 80);
         
         // Neon pipes/wires
         ctx.strokeStyle = '#330066'; ctx.lineWidth = 4;
-        for(let i=0; i<5; i++) {
+        for(let i=0; i<10; i++) {
             ctx.beginPath(); ctx.moveTo(i*200, 0); ctx.lineTo(i*200 + 50, 420); ctx.stroke();
             ctx.strokeStyle = i % 2 === 0 ? '#ff00ff' : '#00ffff';
             ctx.beginPath(); ctx.arc(i*200 + 50, 100, 5, 0, Math.PI*2); ctx.stroke();
@@ -474,6 +508,233 @@ export class IntroCutscene {
         const grad = ctx.createRadialGradient(x, y-50, 5, x, y-50, 40+flicker);
         grad.addColorStop(0, '#fff'); grad.addColorStop(0.3, '#ffcc00'); grad.addColorStop(1, 'transparent');
         ctx.fillStyle = grad; ctx.beginPath(); ctx.arc(x, y-50, 40+flicker, 0, Math.PI*2); ctx.fill();
+        ctx.restore();
+    }
+}
+
+export class World1ClearCutscene {
+    phase: string = 'TALK_WEDDING';
+    timer: number = 0;
+    dialogueIndex: number = 0;
+    language: 'en' | 'es' = 'en';
+    
+    // Positions
+    queenX: number = 500;
+    queenY: number = 420;
+    colossusX: number = 500;
+    colossusY: number = 350;
+    boss1X: number = 1100; // Golem (starts offscreen)
+    boss2X: number = 150;  // Blaze King
+    botX: number = 1100;   // Skelet-bot
+    
+    currentDialogue: { speaker: string, text: string } | null = null;
+    dialogues: { speaker: string, text: string }[] = [];
+
+    constructor() {}
+
+    setLanguage(lang: 'en' | 'es') {
+        this.language = lang;
+        const dialogues_en = [
+            { speaker: 'Ink Colossus', text: 'Our wedding is in just a few days, beautiful. It will be the grandest event these lands have ever seen.' },
+            { speaker: 'Queen', text: '... (Please Vinn, please come far for help...)' },
+            { speaker: 'Skelet-bot', text: 'Lord Colossus! The Golem has returned from the forest.' },
+            { speaker: 'Golem', text: 'i... i couldt... commmmmmplete... the ee miiission...' },
+            { speaker: 'Ink Colossus', text: 'Useless scrap! Skelet-bots! Grab this pathetic golem and take him for recycling!' },
+            { speaker: 'Ink Colossus', text: 'Blaze! I declare you King of the Volcano Lands. Go now, and defeat that knight Vinn!' },
+            { speaker: 'Blaze King', text: 'Thank you, my lord! Truly, an honor! I shall not fail you!' },
+            { speaker: 'Ink Colossus', text: 'Right. Let\'s go, beautiful. It\'s lunch time.' }
+        ];
+
+        const dialogues_es = [
+            { speaker: 'Coloso de Tinta', text: 'Nuestra boda es en solo unos días, hermosa. Será el evento más grande que estas tierras hayan visto jamás.' },
+            { speaker: 'Reina', text: '... (Por favor Vinn, ven pronto a ayudar...)' },
+            { speaker: 'Skelet-bot', text: '¡Lord Coloso! El Golem ha regresado del bosque.' },
+            { speaker: 'Golem', text: 'No... no pude... com-completar... la miiii-misión...' },
+            { speaker: 'Coloso de Tinta', text: '¡Chatarra inútil! ¡Skelet-bots! ¡Agarren a este patético golem y llévenlo a reciclar!' },
+            { speaker: 'Coloso de Tinta', text: '¡Blaze! Te declaro Rey de las Tierras Volcánicas. ¡Ve ahora y derrota a ese caballero Vinn!' },
+            { speaker: 'Rey de Fuego', text: '¡Gracias, mi señor! ¡Realmente un honor! ¡No le fallaré!' },
+            { speaker: 'Coloso de Tinta', text: 'Bien. Vámonos, hermosa. Es la hora del almuerzo.' }
+        ];
+
+        this.dialogues = lang === 'en' ? dialogues_en : dialogues_es;
+    }
+
+    update(dt: number): boolean | { speaker: string, text: string } | null {
+        this.timer += dt;
+
+        switch (this.phase) {
+            case 'TALK_WEDDING':
+                if (this.dialogueIndex >= 2) { this.phase = 'BOT_NOTICE'; this.timer = 0; }
+                break;
+            case 'BOT_NOTICE':
+                this.botX += (850 - this.botX) * 0.1;
+                if (this.dialogueIndex >= 3) { this.phase = 'GOLEM_ENTERS'; this.timer = 0; }
+                break;
+            case 'GOLEM_ENTERS':
+                this.botX += (1200 - this.botX) * 0.1; // Bot retires
+                this.boss1X += (800 - this.boss1X) * 0.05; // Golem limps in
+                if (this.dialogueIndex >= 5) { this.phase = 'REPAIR_ORDER'; this.timer = 0; }
+                break;
+            case 'REPAIR_ORDER':
+                this.botX += (750 - this.botX) * 0.1; // Bots return to grab him
+                if (this.timer > 1.5) {
+                    this.boss1X += 5; // Dragging him out
+                    this.botX += 5;
+                    if (this.boss1X > 1100) { this.phase = 'BLAZE_PROMOTION'; this.timer = 0; }
+                }
+                break;
+            case 'BLAZE_PROMOTION':
+                if (this.dialogueIndex >= 7) this.advanceDialogue(); // Auto skip to Blaze response
+                if (this.dialogueIndex >= 8) { this.phase = 'LUNCH_EXIT'; this.timer = 0; }
+                break;
+            case 'LUNCH_EXIT':
+                if (this.dialogueIndex >= 8) {
+                    this.colossusY += 2;
+                    this.queenY += 2;
+                    if (this.timer > 3) return true; // Finish
+                }
+                break;
+        }
+
+        this.currentDialogue = null;
+        if (this.dialogueIndex < this.dialogues.length) {
+            this.currentDialogue = this.dialogues[this.dialogueIndex];
+            return this.currentDialogue;
+        }
+        return null;
+    }
+
+    advanceDialogue() {
+        if (this.dialogueIndex < this.dialogues.length) {
+            this.dialogueIndex++;
+            this.timer = 0;
+        }
+    }
+
+    draw(ctx: CanvasRenderingContext2D) {
+        ctx.save();
+        
+        // Lab background
+        ctx.fillStyle = '#050510'; ctx.fillRect(0, 0, 2000, 500);
+        ctx.fillStyle = '#101020'; ctx.fillRect(0, 420, 2000, 80);
+        ctx.strokeStyle = '#330066'; ctx.lineWidth = 4;
+        for(let i=0; i<10; i++) {
+            ctx.beginPath(); ctx.moveTo(i*200, 0); ctx.lineTo(i*200 + 50, 420); ctx.stroke();
+            ctx.strokeStyle = i % 2 === 0 ? '#ff00ff' : '#00ffff';
+            ctx.beginPath(); ctx.arc(i*200 + 50, 100, 5, 0, Math.PI*2); ctx.stroke();
+        }
+
+        // Draw Actors
+        if (this.phase === 'BOT_NOTICE' || this.phase === 'GOLEM_ENTERS' || this.phase === 'REPAIR_ORDER') {
+            this.drawSkeletBot(ctx, this.botX, 420, this.botX < 1100);
+            if (this.phase === 'REPAIR_ORDER') this.drawSkeletBot(ctx, this.botX + 60, 420, true);
+        }
+
+        this.drawDamagedGolem(ctx, this.boss1X, 420);
+        this.drawBlazeKing(ctx, this.boss2X, 420);
+        this.drawInkColossus(ctx, this.colossusX, this.colossusY);
+        this.drawQueen(ctx, this.queenX, this.queenY);
+
+        if (this.currentDialogue) {
+            const boxW = 800;
+            const boxX = (1000 - boxW) / 2;
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.8)'; ctx.fillRect(boxX, 30, boxW, 100);
+            ctx.strokeStyle = '#fff'; ctx.lineWidth = 4; ctx.strokeRect(boxX, 30, boxW, 100);
+            
+            // Speaker colors
+            let color = '#fff';
+            if (this.currentDialogue.speaker.includes('Colossus') || this.currentDialogue.speaker.includes('Coloso')) color = '#ff3333';
+            else if (this.currentDialogue.speaker === 'Queen' || this.currentDialogue.speaker === 'Reina') color = '#ff69b4';
+            else if (this.currentDialogue.speaker === 'Golem') color = '#4a5d23';
+            else if (this.currentDialogue.speaker.includes('Blaze')) color = '#ffcc00';
+
+            ctx.fillStyle = color;
+            ctx.font = '16px "Press Start 2P"'; ctx.textBaseline = 'top'; ctx.fillText(this.currentDialogue.speaker + ':', boxX + 20, 50);
+            
+            // Text color: Internal thoughts are pink/italic style (simulated with color)
+            ctx.fillStyle = (this.currentDialogue.text.includes('(')) ? '#ff99cc' : '#fff';
+            ctx.font = '12px "Press Start 2P"';
+            
+            const words = this.currentDialogue.text.split(' ');
+            let line = ''; let lineY = 80;
+            for(let n = 0; n < words.length; n++) {
+                const testLine = line + words[n] + ' ';
+                const metrics = ctx.measureText(testLine);
+                if (metrics.width > 760 && n > 0) { ctx.fillText(line, boxX + 20, lineY); line = words[n] + ' '; lineY += 20; }
+                else line = testLine;
+            }
+            ctx.fillText(line, boxX + 20, lineY);
+        }
+
+        ctx.restore();
+    }
+
+    // --- Helper Drawings (reusing/tweaking Cutscene logic) ---
+    drawDamagedGolem(ctx: CanvasRenderingContext2D, x: number, y: number) {
+        ctx.save();
+        ctx.fillStyle = '#4a5d23'; ctx.strokeStyle = '#2d3e12'; ctx.lineWidth = 4;
+        const bounce = Math.sin(Date.now()/600)*3; // Slower, weak bounce
+        ctx.fillRect(x-40, y-80+bounce, 80, 80);
+        ctx.fillRect(x-20, y-105+bounce, 40, 40);
+        
+        // Cracks
+        ctx.strokeStyle = '#222'; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(x-30, y-70); ctx.lineTo(x-10, y-50); ctx.lineTo(x-20, y-30); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(x+20, y-100); ctx.lineTo(x+30, y-85); ctx.stroke();
+        
+        // Bandages
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(x-42, y-50, 84, 10);
+        ctx.fillRect(x-10, y-108, 10, 25);
+
+        ctx.fillStyle = '#ff3333'; // Red eyes for "hurt"
+        ctx.beginPath(); ctx.arc(x-10, y-90+bounce, 3, 0, Math.PI*2); ctx.arc(x+10, y-90+bounce, 3, 0, Math.PI*2); ctx.fill();
+        ctx.restore();
+    }
+
+    drawBlazeKing(ctx: CanvasRenderingContext2D, x: number, y: number) {
+        ctx.save();
+        const flicker = Math.random()*10;
+        const grad = ctx.createRadialGradient(x, y-50, 5, x, y-50, 40+flicker);
+        grad.addColorStop(0, '#fff'); grad.addColorStop(0.3, '#ffcc00'); grad.addColorStop(1, 'transparent');
+        ctx.fillStyle = grad; ctx.beginPath(); ctx.arc(x, y-50, 40+flicker, 0, Math.PI*2); ctx.fill();
+        ctx.restore();
+    }
+
+    drawSkeletBot(ctx: CanvasRenderingContext2D, x: number, y: number, running: boolean) {
+        ctx.save();
+        ctx.strokeStyle = '#ff3333'; ctx.lineWidth = 3;
+        const bounce = running ? Math.sin(Date.now()/100)*10 : 0;
+        ctx.beginPath(); ctx.arc(x, y-50+bounce, 10, 0, Math.PI*2); ctx.stroke();
+        ctx.fillStyle = '#00ffff'; ctx.beginPath(); ctx.arc(x+4, y-50+bounce, 2, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(x, y-40+bounce); ctx.lineTo(x, y+bounce); ctx.stroke();
+        ctx.restore();
+    }
+
+    drawInkColossus(ctx: CanvasRenderingContext2D, x: number, y: number) {
+        ctx.save();
+        ctx.fillStyle = '#000'; ctx.shadowBlur = 30; ctx.shadowColor = '#000';
+        ctx.beginPath();
+        for(let i=0; i<12; i++) {
+            const angle = (i/12) * Math.PI * 2;
+            const r = 120 + Math.sin(Date.now()/200 + i)*20;
+            const tx = x + Math.cos(angle)*r;
+            const ty = y - 100 + Math.sin(angle)*r*0.6;
+            if(i===0) ctx.moveTo(tx, ty); else ctx.lineTo(tx, ty);
+        }
+        ctx.fill();
+        for(let i=0; i<5; i++) {
+            ctx.fillStyle = '#ff00ff'; ctx.beginPath(); ctx.arc(x-40+i*20, y-100+Math.sin(Date.now()/500+i)*15, 8, 0, Math.PI*2); ctx.fill();
+        }
+        ctx.restore();
+    }
+
+    drawQueen(ctx: CanvasRenderingContext2D, x: number, y: number) {
+        ctx.save();
+        ctx.strokeStyle = '#ff69b4'; ctx.lineWidth = 4; ctx.lineCap = 'round'; ctx.shadowBlur = 10; ctx.shadowColor = '#ff69b4';
+        ctx.beginPath(); ctx.arc(x, y - 40, 12, 0, Math.PI * 2); ctx.stroke();
+        ctx.strokeStyle = '#ff69b4'; ctx.beginPath(); ctx.moveTo(x, y - 28); ctx.lineTo(x, y + 10); ctx.stroke();
+        ctx.fillStyle = '#800080'; ctx.beginPath(); ctx.moveTo(x, y - 20); ctx.lineTo(x - 20, y + 25); ctx.lineTo(x + 20, y + 25); ctx.fill();
         ctx.restore();
     }
 }
