@@ -6,7 +6,7 @@ A vibrant, retro-inspired 2D action-platformer built with React, TypeScript, and
 )
 
 # Alert!
-This game is in alpha so there will be many errors, bugs, and missing features. And the bosses that are not the first world one are TOOOO Easy. Please be patient as I work on improving the game.
+This game is in alpha so there will be many errors and bugs. Please be patient as I work on improving the game.
 
 ## 📖 The Story
 
