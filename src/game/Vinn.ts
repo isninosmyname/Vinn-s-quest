@@ -22,6 +22,7 @@ export class Vinn {
   slipCooldown: number = 0;
   currentSpeedScale: number = 1.0;
   visualType: 'NORMAL' | 'SPIKY' = 'NORMAL';
+  weapon: 'SWORD' | 'HAND' = 'SWORD';
   playerName: string = 'P1';
   isAiming: boolean = false;
   aimAngle: number = 0;
@@ -421,22 +422,43 @@ export class Vinn {
     ctx.stroke();
 
     if (state !== 'DAMAGED') {
-        const swordLen = 50;
-        const sAngle = armAngle - 0.5 * direction;
-        const sx = elbowX + Math.cos(sAngle) * swordLen * direction;
-        const sy = elbowY + Math.sin(sAngle) * swordLen;
-        
-        ctx.lineWidth = 6;
-        ctx.strokeStyle = '#ffcc00';
-        ctx.shadowColor = '#ffcc00';
-        ctx.beginPath();
-        ctx.moveTo(elbowX, elbowY);
-        ctx.lineTo(sx, sy);
-        ctx.stroke();
-        
-        ctx.lineWidth = 2;
-        ctx.strokeStyle = '#fff';
-        ctx.stroke();
+        if (this.weapon === 'SWORD') {
+            const swordLen = 50;
+            const sAngle = armAngle - 0.5 * direction;
+            const sx = elbowX + Math.cos(sAngle) * swordLen * direction;
+            const sy = elbowY + Math.sin(sAngle) * swordLen;
+            
+            ctx.lineWidth = 6;
+            ctx.strokeStyle = '#ffcc00';
+            ctx.shadowColor = '#ffcc00';
+            ctx.beginPath();
+            ctx.moveTo(elbowX, elbowY);
+            ctx.lineTo(sx, sy);
+            ctx.stroke();
+            
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = '#fff';
+            ctx.stroke();
+        } else if (this.weapon === 'HAND') {
+            const punchExt = state === 'ATTACKING' ? 25 : 5;
+            const hx = elbowX + Math.cos(armAngle) * punchExt * direction;
+            const hy = elbowY + Math.sin(armAngle) * punchExt;
+            
+            ctx.fillStyle = color;
+            ctx.shadowColor = color;
+            ctx.beginPath();
+            ctx.arc(hx, hy + 2, 8, 0, Math.PI * 2);
+            ctx.fill();
+
+            if (state === 'ATTACKING') {
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+                ctx.lineWidth = 4;
+                ctx.beginPath();
+                ctx.moveTo(elbowX, elbowY);
+                ctx.lineTo(hx - 5 * direction, hy);
+                ctx.stroke();
+            }
+        }
     }
 
     if (this.state === 'AIMING') {

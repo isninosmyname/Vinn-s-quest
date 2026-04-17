@@ -167,7 +167,7 @@ export class MusicManager {
         if (['WALK_IN', 'KNEEL_AND_TALK'].includes(phase)) targetTrack = 'ROYAL';
         else if (['PORTAL_OPENS', 'QUEEN_SUCKED_IN', 'VINN_JUMPS', 'FOREST_DROP', 'TECH_KIDNAP', 'VINN_LANDING'].includes(phase)) targetTrack = 'STORM';
         else if (['REUNION', 'PORTAL_EXIT', 'CASTLE_ARRIVAL', 'THE_REWARD', 'THE_KISS', 'QUEEN_EXIT', 'BANQUET_CALL', 'FOLLOW_QUEEN'].includes(phase)) targetTrack = 'VICTORY';
-        else if (['BUT_SCREEN', 'BOSS_REGEN', 'BOSS_FUSION', 'FIN_BAIT'].includes(phase)) targetTrack = 'STINGER';
+        else if (['BUT_SCREEN', 'BOSS_REGEN', 'BOSS_FUSION', 'FIN_BAIT', 'LATER_SCREEN', 'BOSS_LAB_INTRO', 'BOSS_LAB_TALK', 'GOLEM_LEAVE', 'COLOSSUS_LEAVE', 'TALK_WEDDING', 'BOT_NOTICE', 'GOLEM_ENTERS', 'REPAIR_ORDER', 'BLAZE_PROMOTION', 'LUNCH_EXIT', 'BLAZE_ENTERS', 'SUIT_UP', 'QUEEN_RESIST', 'FINAL_EXIT'].includes(phase)) targetTrack = 'STINGER';
         else if (phase === 'FOREST_WORLD') targetTrack = 'FOREST_THEME';
         else if (phase === 'VOLCANO_WORLD') targetTrack = 'VOLCANO_THEME';
         else if (phase === 'PAINT_WORLD') targetTrack = 'PAINT_THEME';

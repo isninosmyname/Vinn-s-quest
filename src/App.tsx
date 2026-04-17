@@ -3,7 +3,7 @@ import { Vinn } from './game/Vinn';
 import { Enemy } from './game/Enemy';
 import { Boss } from './game/Boss';
 import type { BossType } from './game/Boss';
-import { IntroCutscene, World1ClearCutscene } from './game/Cutscene';
+import { IntroCutscene, World1ClearCutscene, World2ClearCutscene, World3BossCutscene } from './game/Cutscene';
 import { EndingCutscene } from './game/EndingCutscene';
 import { MusicManager } from './game/SoundEngine';
 import { useGameLoop } from './game/useGameLoop';
@@ -127,7 +127,7 @@ const MINIGAME_CONFIGS = [
 function App() {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const [tutorialPhase, setTutorialPhase] = useState(0);
-    const [gameState, setGameState] = useState<'START_MENU' | 'SETTINGS' | 'LEVEL_SELECTOR' | 'INTRO_CUTSCENE' | 'TUTORIAL' | 'PLAYING' | 'BOSS_VS_CUTSCENE' | 'INK_BOSS_INTRO' | 'GAMEOVER' | 'LEVEL_TRANSITION' | 'WORLD_COMPLETE' | 'ENDING_CUTSCENE' | 'WORLD1_INTERLUDE' | 'GAME_WON' | 'BOSS_GUIDE' | 'MINIGAME_SELECTOR' | 'MG_MUSHROOM_JUMP' | 'MG_STONE_SMASH' | 'MG_ESCAPE' | 'MG_GAMEOVER'>('START_MENU');
+    const [gameState, setGameState] = useState<'START_MENU' | 'SETTINGS' | 'LEVEL_SELECTOR' | 'INTRO_CUTSCENE' | 'TUTORIAL' | 'PLAYING' | 'BOSS_VS_CUTSCENE' | 'INK_BOSS_INTRO' | 'GAMEOVER' | 'LEVEL_TRANSITION' | 'WORLD_COMPLETE' | 'ENDING_CUTSCENE' | 'WORLD1_INTERLUDE' | 'WORLD2_INTERLUDE' | 'WORLD3_BOSS_INTRO' | 'GAME_WON' | 'BOSS_GUIDE' | 'MINIGAME_SELECTOR' | 'MG_MUSHROOM_JUMP' | 'MG_STONE_SMASH' | 'MG_ESCAPE' | 'MG_GAMEOVER'>('START_MENU');
     const [guideStep, setGuideStep] = useState(0);
     const [mgScore, setMgScore] = useState(0);
     const [mgHighScores, setMgHighScores] = useState<{ mushroom: number, stone: number, escape: number }>(() => {
@@ -151,6 +151,8 @@ function App() {
     const bossProjectilesRef = useRef<{ type: 'FIREBALL' | 'LAVA', x: number, y: number, vx: number, vy: number, life: number }[]>([]);
     const cutsceneRef = useRef<IntroCutscene>(new IntroCutscene());
     const interlude1Ref = useRef<World1ClearCutscene | null>(null);
+    const interlude2Ref = useRef<World2ClearCutscene | null>(null);
+    const interlude3Ref = useRef<World3BossCutscene | null>(null);
     const endingRef = useRef<EndingCutscene>(new EndingCutscene());
     const musicRef = useRef<MusicManager>(new MusicManager());
     const cameraXRef = useRef(0);
@@ -161,8 +163,8 @@ function App() {
     const inkProjectilesRef = useRef<{ x: number, y: number, vx: number, vy: number }[]>([]);
     const inkIntroTimerRef = useRef(0);
     const cameraYRef = useRef(0);
+    const castleSequenceRef = useRef({ triggered: false, timer: 0, active: false });
 
-    // Mobile detection
     const [isMobile] = useState(() =>
         typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0)
     );
@@ -214,7 +216,6 @@ function App() {
         return saved ? JSON.parse(saved).level : 1;
     });
     const [keys, setKeys] = useState<Record<string, boolean>>({});
-    // Merge mobile virtual keys into the keys read by the game loop
     const mergedKeys = isMobile ? { ...keys, ...mobileKeysRef.current } : keys;
 
 
@@ -226,6 +227,10 @@ function App() {
             cutsceneRef.current.advanceDialogue();
         } else if (gameState === 'WORLD1_INTERLUDE' && interlude1Ref.current) {
             interlude1Ref.current.advanceDialogue();
+        } else if (gameState === 'WORLD2_INTERLUDE' && interlude2Ref.current) {
+            interlude2Ref.current.advanceDialogue();
+        } else if (gameState === 'WORLD3_BOSS_INTRO' && interlude3Ref.current) {
+            interlude3Ref.current.advanceDialogue();
         } else if (gameState === 'ENDING_CUTSCENE') {
             endingRef.current.advanceDialogue();
         } else if (gameState === 'INK_BOSS_INTRO') {
@@ -277,6 +282,7 @@ function App() {
         vinnRef.current.x = 100;
         vinnRef.current.y = 400;
         vinnRef.current.health = vinnRef.current.maxHealth;
+        vinnRef.current.weapon = (worldIndex === 3 && levelIndex === 5) ? 'HAND' : 'SWORD';
         cameraXRef.current = 0;
         enemiesRef.current = config.enemies.map((e: any) => new Enemy(e.x, 420, e.type));
         const configItems = (config.items || []) as Item[];
@@ -375,6 +381,75 @@ function App() {
         }
     };
 
+    const drawCastle = (ctx: CanvasRenderingContext2D, x: number) => {
+        ctx.save();
+        const baseWidth = 300;
+        const baseY = 460;
+        
+        // Timer for door animation (0.0 to 1.0)
+        // Sequence lasts 180 frames. Doors open over the middle 60 frames.
+        const timerVal = castleSequenceRef.current.timer;
+        const doorOpenFactor = timerVal < 120 ? Math.min(1.0, (120 - timerVal) / 60) : 0;
+
+        // Draw Foundation Shadow
+        ctx.fillStyle = 'rgba(0,0,0,0.5)';
+        ctx.fillRect(x - 100, baseY - 50, baseWidth + 200, 100);
+
+        // Draw Body (Dark Ink Stone)
+        ctx.fillStyle = '#0a0015';
+        ctx.strokeStyle = '#2d0040';
+        ctx.lineWidth = 4;
+        ctx.fillRect(x, baseY - 350, baseWidth, 350);
+        ctx.strokeRect(x, baseY - 350, baseWidth, 350);
+
+        // Accent lines
+        ctx.strokeStyle = '#4b0082';
+        ctx.beginPath();
+        for(let i=1; i<5; i++) {
+            ctx.moveTo(x, baseY - i*70); ctx.lineTo(x + baseWidth, baseY - i*70);
+        }
+        ctx.stroke();
+
+        // Towers
+        ctx.fillStyle = '#100020';
+        ctx.fillRect(x - 40, baseY - 420, 80, 420); // Left
+        ctx.fillRect(x + baseWidth - 40, baseY - 420, 80, 420); // Right
+        ctx.strokeRect(x - 40, baseY - 420, 80, 420);
+        ctx.strokeRect(x + baseWidth - 40, baseY - 420, 80, 420);
+        
+        // Battlements
+        ctx.fillStyle = '#0a0015';
+        for(let i=0; i<6; i++) {
+            ctx.fillRect(x - 45 + i*80, baseY - 440, 40, 20);
+        }
+
+        // Gate Area
+        ctx.fillStyle = '#000';
+        ctx.fillRect(x + 100, baseY - 120, 100, 120);
+
+        // Doors (animated)
+        ctx.fillStyle = '#2d0045';
+        ctx.strokeStyle = '#ff00ff';
+        ctx.lineWidth = 2;
+        
+        const doorYOffset = doorOpenFactor * 130;
+        // Left Door
+        ctx.fillRect(x + 100, baseY - 120 - doorYOffset, 50, 120);
+        ctx.strokeRect(x + 100, baseY - 120 - doorYOffset, 50, 120);
+        // Right Door
+        ctx.fillRect(x + 150, baseY - 120 - doorYOffset, 50, 120);
+        ctx.strokeRect(x + 150, baseY - 120 - doorYOffset, 50, 120);
+
+        // Handles
+        ctx.fillStyle = '#ffcc00';
+        ctx.beginPath();
+        ctx.arc(x + 145, baseY - 60 - doorYOffset, 4, 0, Math.PI*2);
+        ctx.arc(x + 155, baseY - 60 - doorYOffset, 4, 0, Math.PI*2);
+        ctx.fill();
+
+        ctx.restore();
+    };
+
     useGameLoop((dt: number) => {
         const canvas = canvasRef.current;
         if (!canvas) return;
@@ -457,7 +532,9 @@ function App() {
                 : mergedKeys;
 
             // P1 Update
-            vinnRef.current.update(dt, autoRunKeys, activeLength - 50, activePlatforms, gameState === 'TUTORIAL' ? 0.7 : 1.0, minX);
+            const isFrozen = castleSequenceRef.current.active;
+            const inputKeys = isFrozen ? {} : autoRunKeys;
+            vinnRef.current.update(dt, inputKeys, activeLength - 50, activePlatforms, gameState === 'TUTORIAL' ? 0.7 : 1.0, minX);
             if (inkChase && !anyAiming) {
                 if (isAutoHalted) {
                     vinnRef.current.vx = 0;
@@ -469,10 +546,10 @@ function App() {
 
             // P2 Update
             if (isTwoPlayer) {
-                const p2Keys = {
+                const iKeys = castleSequenceRef.current.active ? {} : {
                     'a': mergedKeys['arrowleft'], 'd': mergedKeys['arrowright'], ' ': mergedKeys['enter']
                 };
-                vinn2Ref.current.update(dt, p2Keys, activeLength - 50, activePlatforms, 1.0, minX);
+                vinn2Ref.current.update(dt, iKeys, activeLength - 50, activePlatforms, 1.0, minX);
                 if (inkChase && !anyAiming) vinn2Ref.current.vx = Math.max(vinn2Ref.current.vx, 5.0);
                 else if (anyAiming) vinn2Ref.current.vx = 0;
 
@@ -535,11 +612,14 @@ function App() {
             leadX = isTwoPlayer ? Math.max(vinnRef.current.x, vinn2Ref.current.x) : vinnRef.current.x;
             leadY = isTwoPlayer ? Math.min(vinnRef.current.y, vinn2Ref.current.y) : vinnRef.current.y;
 
-            vinnRef.current.update(dt, mergedKeys, 999999, activePlatforms);
+            const isFrozen = castleSequenceRef.current.active;
+            const inputKeys = isFrozen ? {} : mergedKeys;
+            vinnRef.current.update(dt, inputKeys, 999999, activePlatforms);
             if (isTwoPlayer) {
-                vinn2Ref.current.update(dt, { 'a': mergedKeys['arrowleft'], 'd': mergedKeys['arrowright'], ' ': mergedKeys['enter'] }, 999999, activePlatforms);
+                const iKeys = castleSequenceRef.current.active ? {} : { 'a': mergedKeys['arrowleft'], 'd': mergedKeys['arrowright'], ' ': mergedKeys['enter'] };
+                vinn2Ref.current.update(dt, iKeys, 999999, activePlatforms);
                 if (vinnRef.current.health > 0 && vinn2Ref.current.health <= 0) { if (Math.abs(vinnRef.current.x - vinn2Ref.current.x) < 60) vinn2Ref.current.health = 5; }
-                if (vinn2Ref.current.health > 0 && vinnRef.current.health <= 0) { if (Math.abs(vinnRef.current.x - vinn2Ref.current.x) < 60) vinnRef.current.health = 5; }
+                if (vinn2Ref.current.health > 0 && vinnRef.current.health <= 0) { if (Math.abs(vinnRef.current.x - vinn2Ref.current.x) < 60) vinn2Ref.current.health = 5; }
             }
 
             // 1. Mushroom Jump Logic
@@ -688,12 +768,34 @@ function App() {
             }
         } else if (gameState === 'WORLD1_INTERLUDE' && interlude1Ref.current) {
             const finished = interlude1Ref.current.update(dt);
+            musicRef.current.update((interlude1Ref.current as any).phase);
             if (finished === true) {
-                // Direct to World 2 as requested
                 setCurrentWorld(2);
                 setCurrentLevel(1);
                 setUnlockedProgress(prev => ({ world: 2, level: 1 }));
                 setGameState('LEVEL_SELECTOR');
+            }
+        } else if (gameState === 'WORLD2_INTERLUDE' && interlude2Ref.current) {
+            const finished = interlude2Ref.current.update(dt);
+            musicRef.current.update((interlude2Ref.current as any).phase);
+            if (finished === true) {
+                setCurrentWorld(3);
+                setCurrentLevel(1);
+                setUnlockedProgress(prev => ({ world: 3, level: 1 }));
+                setGameState('LEVEL_SELECTOR');
+            }
+        } else if (gameState === 'WORLD3_BOSS_INTRO' && interlude3Ref.current) {
+            const finished = interlude3Ref.current.update(dt);
+            musicRef.current.update((interlude3Ref.current as any).phase); // It will fallback to STINGER mostly
+            if (finished === true) {
+                setCurrentWorld(3);
+                setCurrentLevel(5);
+                setUnlockedProgress(prev => {
+                    if (3 > prev.world) return { world: 3, level: 5 };
+                    if (3 === prev.world && 5 > prev.level) return { world: 3, level: 5 };
+                    return prev;
+                });
+                loadLevel(3, 5);
             }
         } else if (gameState === 'ENDING_CUTSCENE') {
             const finished = endingRef.current.update(dt);
@@ -758,12 +860,22 @@ function App() {
         } else if (gameState === 'PLAYING') {
             if (vinnRef.current.x >= levelConfig.length - 100) {
                 if (!levelConfig.isBoss) {
-                    if (currentLevel < 5) setGameState('LEVEL_TRANSITION');
+                    if (currentWorld === 3 && currentLevel === 4) {
+                        interlude3Ref.current = new World3BossCutscene();
+                        interlude3Ref.current.setLanguage(language);
+                        setGameState('WORLD3_BOSS_INTRO');
+                    } else if (currentLevel < 5) {
+                        setGameState('LEVEL_TRANSITION');
+                    }
                 } else if (bossRef.current && bossRef.current.health <= 0) {
-                    if (currentWorld === 1) {
+                    if (currentWorld === 1 && currentLevel === 5) {
                         interlude1Ref.current = new World1ClearCutscene();
                         interlude1Ref.current.setLanguage(language);
                         setGameState('WORLD1_INTERLUDE');
+                    } else if (currentWorld === 2 && currentLevel === 5) {
+                        interlude2Ref.current = new World2ClearCutscene();
+                        interlude2Ref.current.setLanguage(language);
+                        setGameState('WORLD2_INTERLUDE');
                     } else if (currentWorld < 3) {
                         setGameState('WORLD_COMPLETE');
                     } else {
@@ -776,6 +888,24 @@ function App() {
             leadX = isTwoPlayer ? Math.max(vinnRef.current.x, vinn2Ref.current.x) : vinnRef.current.x;
 
             let targetCamX = Math.max(0, Math.min(levelConfig.length - GAME_WIDTH, leadX - GAME_WIDTH / 2));
+            
+            // Castle Sequence for World 3 Level 4
+            if (currentWorld === 3 && currentLevel === 4) {
+                if (leadX >= 3600 && !castleSequenceRef.current.triggered) {
+                    castleSequenceRef.current.triggered = true;
+                    castleSequenceRef.current.active = true;
+                    castleSequenceRef.current.timer = 180; // 3 seconds
+                }
+                if (castleSequenceRef.current.active) {
+                    castleSequenceRef.current.timer--;
+                    if (castleSequenceRef.current.timer <= 0) {
+                        castleSequenceRef.current.active = false;
+                    }
+                    // Pan camera to the castle (end of level)
+                    targetCamX = 4000 - GAME_WIDTH;
+                }
+            }
+
             if (inkChase) {
                 // No clamp during infinite chase originally, but now we respect level boundaries
                 targetCamX = Math.max(0, Math.min(activeLength - GAME_WIDTH, leadX - GAME_WIDTH / 2));
@@ -1076,6 +1206,10 @@ function App() {
             interlude1Ref.current.draw(ctx);
             return;
         }
+        if (gameState === 'WORLD2_INTERLUDE' && interlude2Ref.current) {
+            interlude2Ref.current.draw(ctx);
+            return;
+        }
         if (gameState === 'ENDING_CUTSCENE') {
             endingRef.current.draw(ctx);
             return;
@@ -1117,6 +1251,11 @@ function App() {
         else {
             ctx.fillStyle = '#1a1a2e';
             ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+        }
+
+        // World 3 Castle Rendering
+        if (currentWorld === 3 && currentLevel === 4) {
+            drawCastle(ctx, 3800 - camX);
         }
 
         if (currentTheme === 'VOLCANO') {
@@ -1526,6 +1665,13 @@ function App() {
                             </button>
                             <button 
                                 className="level-btn" 
+                                style={{ width: '280px', fontSize: '18px', borderColor: '#ff00ff', color: '#ff00ff' }}
+                                onClick={() => loadLevel(3, 1)}
+                            >
+                                {t('PAINT_LAND') || '🎨 PAINT LAND'}
+                            </button>
+                            <button 
+                                className="level-btn" 
                                 style={{ width: '280px', fontSize: '18px', borderColor: '#ffcc00', color: '#ffcc00' }}
                                 onClick={() => setGameState('MINIGAME_SELECTOR')}
                             >
@@ -1674,6 +1820,23 @@ function App() {
                                     e.stopPropagation();
                                     musicRef.current.stop();
                                     setGameState('TUTORIAL');
+                                }}
+                            >
+                                SKIP CUTSCENE
+                            </button>
+                        </div>
+                    )}
+
+                    {gameState === 'WORLD3_BOSS_INTRO' && (
+                        <div style={{ position: 'absolute', top: 20, right: 20, pointerEvents: 'auto', zIndex: 9999 }}>
+                            <button
+                                style={{ pointerEvents: 'auto', cursor: 'pointer' }}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    musicRef.current.stop();
+                                    setCurrentWorld(3);
+                                    setCurrentLevel(5);
+                                    loadLevel(3, 5);
                                 }}
                             >
                                 SKIP CUTSCENE
