@@ -3,7 +3,7 @@ import { Vinn } from './game/Vinn';
 import { Enemy } from './game/Enemy';
 import { Boss } from './game/Boss';
 import type { BossType } from './game/Boss';
-import { IntroCutscene, World1ClearCutscene, World2ClearCutscene, World3BossCutscene } from './game/Cutscene';
+import { IntroCutscene, World1ClearCutscene, World2ClearCutscene, World3BossCutscene, World3EscapeCutscene } from './game/Cutscene';
 import { EndingCutscene } from './game/EndingCutscene';
 import { MusicManager } from './game/SoundEngine';
 import { useGameLoop } from './game/useGameLoop';
@@ -127,7 +127,7 @@ const MINIGAME_CONFIGS = [
 function App() {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const [tutorialPhase, setTutorialPhase] = useState(0);
-    const [gameState, setGameState] = useState<'START_MENU' | 'SETTINGS' | 'LEVEL_SELECTOR' | 'INTRO_CUTSCENE' | 'TUTORIAL' | 'PLAYING' | 'BOSS_VS_CUTSCENE' | 'INK_BOSS_INTRO' | 'GAMEOVER' | 'LEVEL_TRANSITION' | 'WORLD_COMPLETE' | 'ENDING_CUTSCENE' | 'WORLD1_INTERLUDE' | 'WORLD2_INTERLUDE' | 'WORLD3_BOSS_INTRO' | 'GAME_WON' | 'BOSS_GUIDE' | 'MINIGAME_SELECTOR' | 'MG_MUSHROOM_JUMP' | 'MG_STONE_SMASH' | 'MG_ESCAPE' | 'MG_GAMEOVER'>('START_MENU');
+    const [gameState, setGameState] = useState<'START_MENU' | 'SETTINGS' | 'LEVEL_SELECTOR' | 'INTRO_CUTSCENE' | 'TUTORIAL' | 'PLAYING' | 'BOSS_VS_CUTSCENE' | 'INK_BOSS_INTRO' | 'GAMEOVER' | 'LEVEL_TRANSITION' | 'WORLD_COMPLETE' | 'ENDING_CUTSCENE' | 'WORLD1_INTERLUDE' | 'WORLD2_INTERLUDE' | 'WORLD3_BOSS_INTRO' | 'WORLD3_ESCAPE_CUTSCENE' | 'GAME_WON' | 'BOSS_GUIDE' | 'MINIGAME_SELECTOR' | 'MG_MUSHROOM_JUMP' | 'MG_STONE_SMASH' | 'MG_ESCAPE' | 'MG_GAMEOVER'>('START_MENU');
     const [guideStep, setGuideStep] = useState(0);
     const [mgScore, setMgScore] = useState(0);
     const [mgHighScores, setMgHighScores] = useState<{ mushroom: number, stone: number, escape: number }>(() => {
@@ -153,6 +153,7 @@ function App() {
     const interlude1Ref = useRef<World1ClearCutscene | null>(null);
     const interlude2Ref = useRef<World2ClearCutscene | null>(null);
     const interlude3Ref = useRef<World3BossCutscene | null>(null);
+    const escapeCutsceneRef = useRef<World3EscapeCutscene>(new World3EscapeCutscene());
     const endingRef = useRef<EndingCutscene>(new EndingCutscene());
     const musicRef = useRef<MusicManager>(new MusicManager());
     const cameraXRef = useRef(0);
@@ -164,6 +165,12 @@ function App() {
     const inkIntroTimerRef = useRef(0);
     const cameraYRef = useRef(0);
     const castleSequenceRef = useRef({ triggered: false, timer: 0, active: false });
+    const rocks3DRef = useRef<{ x: number, y: number, z: number, vx: number, vy: number, vz: number, size: number }[]>([]);
+    const mousePosRef = useRef({ x: 400, y: 300 });
+    const isSlashingRef = useRef(0); // Timer for slash duration
+    const mgHitsRef = useRef(0);
+    const mgFearRef = useRef(0);
+    const mgTimeLeftRef = useRef(60);
 
     const [isMobile] = useState(() =>
         typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0)
@@ -231,6 +238,8 @@ function App() {
             interlude2Ref.current.advanceDialogue();
         } else if (gameState === 'WORLD3_BOSS_INTRO' && interlude3Ref.current) {
             interlude3Ref.current.advanceDialogue();
+        } else if (gameState === 'WORLD3_ESCAPE_CUTSCENE') {
+            escapeCutsceneRef.current.advanceDialogue();
         } else if (gameState === 'ENDING_CUTSCENE') {
             endingRef.current.advanceDialogue();
         } else if (gameState === 'INK_BOSS_INTRO') {
@@ -251,8 +260,25 @@ function App() {
             }
         };
         const handleKeyUp = (e: KeyboardEvent) => setKeys(prev => ({ ...prev, [e.key.toLowerCase()]: false }));
+        const handleMouseMove = (e: MouseEvent) => {
+            const rect = canvasRef.current?.getBoundingClientRect();
+            if (rect) {
+                mousePosRef.current = {
+                    x: e.clientX - rect.left,
+                    y: e.clientY - rect.top
+                };
+            }
+        };
+        const handleMouseDown = () => {
+            if (gameState === 'MG_STONE_SMASH') {
+                isSlashingRef.current = 0.15; // 150ms slash
+            }
+        };
+
         window.addEventListener('keydown', handleKeyDown);
         window.addEventListener('keyup', handleKeyUp);
+        window.addEventListener('mousemove', handleMouseMove);
+        window.addEventListener('mousedown', handleMouseDown);
         if (gameState === 'WORLD_COMPLETE') {
             const nextWorld = currentWorld + 1;
             setUnlockedProgress(prev => {
@@ -264,6 +290,8 @@ function App() {
         return () => {
             window.removeEventListener('keydown', handleKeyDown);
             window.removeEventListener('keyup', handleKeyUp);
+            window.removeEventListener('mousemove', handleMouseMove);
+            window.removeEventListener('mousedown', handleMouseDown);
         };
     }, [gameState]);
 
@@ -362,6 +390,9 @@ function App() {
               platformsRef.current.push({ x: Math.random()*(GAME_WIDTH-120) + 60, y: 560 - i*150, w: 100, h: 20, type: 'MUSHROOM' });
           }
       } else if (type === 'MG_STONE_SMASH') {
+          rocks3DRef.current = [];
+          mgHitsRef.current = 0;
+          setMgScore(0);
           vinnRef.current.x = 200; if(isTwoPlayer) vinn2Ref.current.x = 150;
           platformsRef.current = [{ x: 0, y: 460, w: 1200, h: 20 }];
       } else if (type === 'MG_ESCAPE') {
@@ -691,55 +722,74 @@ function App() {
                 }
             }
 
-            // 2. Stone Smash Logic
+            // 2. 3D Stone Smash Logic
             if (gameState === 'MG_STONE_SMASH') {
-                setMgScore(prev => prev + dt * 10);
-                if (Math.random() < 0.03) {
-                    rocksRef.current.push({ x: vinnRef.current.x + 800, y: 200 + Math.random() * 200, vy: (Math.random()-0.5) * 4 });
-                }
-                
-                // Procedural generation for Stone Smash
-                const lastPlat = platformsRef.current[platformsRef.current.length - 1];
-                if (lastPlat.x < vinnRef.current.x + 1000) {
-                    platformsRef.current.push({
-                        x: lastPlat.x + lastPlat.w + 50 + Math.random() * 200,
-                        y: 350 + Math.random() * 150,
-                        w: 200 + Math.random() * 400,
-                        h: 20,
-                        type: 'NORMAL'
+                if (isSlashingRef.current > 0) isSlashingRef.current -= dt;
+
+                // Spawn rocks in 3D
+                if (Math.random() < (0.02 + mgScore * 0.00005)) {
+                    rocks3DRef.current.push({
+                        x: (Math.random() - 0.5) * 600,
+                        y: (Math.random() - 0.5) * 400 - 50,
+                        z: 1000,
+                        vx: 0, vy: 0, vz: -8 - (mgScore * 0.05),
+                        size: 40 + Math.random() * 40
                     });
                 }
-                // Cleanup
-                if (platformsRef.current.length > 20) {
-                    platformsRef.current = platformsRef.current.filter(p => p.x > vinnRef.current.x - 800);
-                }
 
-                rocksRef.current = rocksRef.current.filter(rock => {
-                    rock.x -= 8;
-                    rock.y += rock.vy;
-                    const checkHit = (p: Vinn) => {
-                        if (p.state === 'ATTACKING' && Math.abs(p.x - rock.x) < 60 && Math.abs(p.y - rock.y) < 60) {
-                            spawnParticles(rock.x, rock.y, '#fff');
-                            setMgScore(s => s + 100);
-                            return true;
+                rocks3DRef.current = rocks3DRef.current.filter(rock => {
+                    rock.z += rock.vz;
+                    
+                    // Simple Projection for collision check
+                    const focalLength = 400;
+                    const scale = focalLength / Math.max(1, rock.z);
+                    const screenX = 400 + rock.x * scale;
+                    const screenY = 250 + rock.y * scale;
+                    const screenR = rock.size * scale;
+
+                    // Collision plane (at roughly z=50-100)
+                    if (rock.z < 120 && rock.z > 10) {
+                        const dx = mousePosRef.current.x - screenX;
+                        const dy = mousePosRef.current.y - screenY;
+                        const dist = Math.sqrt(dx*dx + dy*dy);
+                        if (dist < screenR + 60 && isSlashingRef.current > 0) { // Sword reach + Slash active
+                            spawnParticles(screenX, screenY, '#fff');
+                            setMgScore(s => s + 1);
+                            cameraShakeRef.current = 4;
+                            return false; // Rock broken
                         }
-                        if (Math.abs(p.x - rock.x) < 30 && Math.abs(p.y - rock.y) < 30) {
-                            p.takeDamage(1);
-                            return true;
+                    }
+
+                    // Rock hits player
+                    if (rock.z <= 20) {
+                        mgHitsRef.current++;
+                        cameraShakeRef.current = 20;
+                        if (mgHitsRef.current >= 3) {
+                             setGameState('MG_GAMEOVER');
                         }
                         return false;
-                    };
-                    if (checkHit(vinnRef.current)) return false;
-                    if (isTwoPlayer && checkHit(vinn2Ref.current)) return false;
-                    return rock.x > vinnRef.current.x - 400;
+                    }
+
+                    return true;
                 });
-                if (vinnRef.current.health <= 0 && (!isTwoPlayer || vinn2Ref.current.health <= 0)) setGameState('MG_GAMEOVER');
-                if (vinnRef.current.y > 600) setGameState('MG_GAMEOVER');
             }
 
             // 3. Escape! Logic (Protect the Queen)
             if (gameState === 'MG_ESCAPE') {
+                const isStoryMode = currentMgRef.current === null;
                 setMgScore(prev => prev + dt * 50);
+
+                if (isStoryMode) {
+                    mgTimeLeftRef.current -= dt;
+                    mgFearRef.current += dt * 0.5; // Passive fear increase
+                    if (mgTimeLeftRef.current <= 0) {
+                        setGameState('ENDING_CUTSCENE');
+                    }
+                    if (mgFearRef.current >= 100) {
+                        setGameState('GAMEOVER'); // Lose canonical escape
+                    }
+                }
+
                 // Queen follows Vinn
                 const tx = vinnRef.current.x - 60;
                 const ty = vinnRef.current.y - 10;
@@ -768,7 +818,12 @@ function App() {
                     // Queen hit check
                     if (Math.abs(p.x - queenPosRef.current.x) < 30 && Math.abs(p.y - queenPosRef.current.y) < 30) {
                         spawnParticles(queenPosRef.current.x, queenPosRef.current.y, '#ff00ff');
-                        setGameState('MG_GAMEOVER');
+                        if (isStoryMode) {
+                            mgFearRef.current += 15;
+                            cameraShakeRef.current = 15;
+                        } else {
+                            setGameState('MG_GAMEOVER');
+                        }
                         return false;
                     }
                     if (Math.abs(p.x - vinnRef.current.x) < 30 && Math.abs(p.y - vinnRef.current.y) < 30) { vinnRef.current.takeDamage(1); return false; }
@@ -776,8 +831,13 @@ function App() {
                     
                     return p.x > cameraXRef.current - 200;
                 });
-                if (vinnRef.current.health <= 0 && (!isTwoPlayer || vinn2Ref.current.health <= 0)) setGameState('MG_GAMEOVER');
-                if (vinnRef.current.y > 600) setGameState('MG_GAMEOVER');
+                
+                if (vinnRef.current.health <= 0 && (!isTwoPlayer || vinn2Ref.current.health <= 0)) {
+                    setGameState(isStoryMode ? 'GAMEOVER' : 'MG_GAMEOVER');
+                }
+                if (vinnRef.current.y > 600) {
+                    setGameState(isStoryMode ? 'GAMEOVER' : 'MG_GAMEOVER');
+                }
             }
 
             cameraXRef.current = (gameState === 'MG_MUSHROOM_JUMP') ? 0 : leadX - 200;
@@ -814,12 +874,28 @@ function App() {
             if (finished === true) {
                 setCurrentWorld(3);
                 setCurrentLevel(5);
-                setUnlockedProgress(prev => {
-                    if (3 > prev.world) return { world: 3, level: 5 };
-                    if (3 === prev.world && 5 > prev.level) return { world: 3, level: 5 };
-                    return prev;
-                });
-                loadLevel(3, 5);
+                setGameState('INK_BOSS_INTRO');
+            }
+        } else if (gameState === 'WORLD3_ESCAPE_CUTSCENE') {
+            const finished = escapeCutsceneRef.current.update(dt);
+            if (finished === true) {
+                vinnRef.current.reset(100, 420);
+                vinnRef.current.health = vinnRef.current.maxHealth;
+                if (isTwoPlayer) {
+                    vinn2Ref.current.reset(150, 420);
+                    vinn2Ref.current.health = vinn2Ref.current.maxHealth;
+                }
+                setMgScore(0);
+                currentMgRef.current = null; // null marks canonical story run
+                particlesRef.current = [];
+                enemiesRef.current = [];
+                inkProjectilesRef.current = [];
+                cameraXRef.current = 0;
+                mgTimeLeftRef.current = 60;
+                mgFearRef.current = 0;
+                queenPosRef.current = { x: 0, y: 460 };
+                platformsRef.current = [{ x: 0, y: 460, w: 1200, h: 20 }];
+                setGameState('MG_ESCAPE');
             }
         } else if (gameState === 'ENDING_CUTSCENE') {
             const finished = endingRef.current.update(dt);
@@ -1103,12 +1179,11 @@ function App() {
                     checkMeleeHit(vinnRef.current);
                     if (isTwoPlayer) checkMeleeHit(vinn2Ref.current);
 
-                    // Victory
                     if (boss.inkHits >= 5 && vinnRef.current.x >= 15200) {
                         boss.state = 'DEFEATED';
                         boss.health = 0; // Sync health for standard end triggers
                         setTimeout(() => {
-                            if (currentWorld === 3) setGameState('ENDING_CUTSCENE');
+                            if (currentWorld === 3) setGameState('WORLD3_ESCAPE_CUTSCENE');
                             else setGameState('WORLD_COMPLETE');
                         }, 1500);
                     }
@@ -1208,6 +1283,121 @@ function App() {
             if (cameraShakeRef.current < 0.5) cameraShakeRef.current = 0;
         }
 
+        if (gameState === 'MG_STONE_SMASH') {
+            // Render 3D Minigame instead of world
+            ctx.fillStyle = '#0a0a1a';
+            ctx.fillRect(0, 0, 800, 500);
+            
+            // Draw 3D Grid
+            ctx.strokeStyle = '#1e1e40';
+            ctx.lineWidth = 1;
+            const focalLength = 400;
+            for(let i=-5; i<=5; i++) {
+                // Horizontal lines (floor)
+                ctx.beginPath();
+                for(let z=100; z<1000; z+=100) {
+                     const scale = focalLength / z;
+                     ctx.moveTo(400 - 1000 * scale, 250 + 200 * scale);
+                     ctx.lineTo(400 + 1000 * scale, 250 + 200 * scale);
+                }
+                ctx.stroke();
+                // Persisting lines (converging to center)
+                ctx.beginPath();
+                ctx.moveTo(400 + i * 200, 500);
+                ctx.lineTo(400, 250);
+                ctx.stroke();
+            }
+
+            // Render 3D Rocks
+            rocks3DRef.current.forEach(rock => {
+                const scale = focalLength / Math.max(1, rock.z);
+                const screenX = 400 + rock.x * scale;
+                const screenY = 250 + rock.y * scale;
+                const screenR = rock.size * scale;
+
+                // Rock Shadow
+                ctx.fillStyle = 'rgba(0,0,0,0.5)';
+                ctx.beginPath();
+                ctx.ellipse(screenX, 250 + 200 * scale, screenR, screenR * 0.3, 0, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Rock Body
+                const grad = ctx.createRadialGradient(screenX - screenR/3, screenY - screenR/3, screenR/4, screenX, screenY, screenR);
+                grad.addColorStop(0, '#888');
+                grad.addColorStop(1, '#222');
+                ctx.fillStyle = grad;
+                ctx.beginPath();
+                ctx.arc(screenX, screenY, screenR, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = '#444'; ctx.lineWidth = 2 * scale;
+                ctx.stroke();
+            });
+
+            // Render 1st Person Sword
+            const mx = mousePosRef.current.x;
+            const my = mousePosRef.current.y;
+            ctx.save();
+            ctx.translate(mx, my);
+            // Tilt the sword based on movement
+            const tilt = (mx - 400) / 400 * 0.5;
+            ctx.rotate(tilt);
+            
+            // Blade
+            const bladeGrad = ctx.createLinearGradient(-10, -100, 10, -100);
+            bladeGrad.addColorStop(0, '#e0f7fa'); bladeGrad.addColorStop(0.5, '#fff'); bladeGrad.addColorStop(1, '#00f2ff');
+            ctx.fillStyle = bladeGrad;
+            ctx.beginPath();
+            ctx.moveTo(-15, 0); ctx.lineTo(-10, -180); ctx.lineTo(0, -210); ctx.lineTo(10, -180); ctx.lineTo(15, 0);
+            ctx.closePath(); ctx.fill();
+            ctx.strokeStyle = '#00f2ff'; ctx.lineWidth = 2; ctx.stroke();
+            
+            // Hilt
+            ctx.fillStyle = '#444'; ctx.fillRect(-25, 0, 50, 10);
+            ctx.fillStyle = '#222'; ctx.fillRect(-8, 5, 16, 60);
+
+            ctx.restore();
+
+            // Render Slash Effect
+            if (isSlashingRef.current > 0) {
+                ctx.save();
+                ctx.translate(mx, my);
+                ctx.rotate(tilt);
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+                ctx.lineWidth = 15;
+                ctx.lineCap = 'round';
+                ctx.beginPath();
+                ctx.arc(0, -100, 100, -Math.PI * 0.8, -Math.PI * 0.2);
+                ctx.stroke();
+                ctx.strokeStyle = '#00f2ff';
+                ctx.lineWidth = 5;
+                ctx.beginPath();
+                ctx.arc(0, -100, 100, -Math.PI * 0.8, -Math.PI * 0.2);
+                ctx.stroke();
+                ctx.restore();
+            }
+
+            // Minigame UI (3 Hits limit)
+            ctx.fillStyle = '#fff';
+            ctx.font = 'bold 20px "Press Start 2P"';
+            ctx.textAlign = 'left';
+            ctx.fillText(`SCORE: ${Math.floor(mgScore)}`, 30, 50);
+
+            // Draw Health Hearts
+            for(let i=0; i<3; i++) {
+                const hx = 750 - i * 40;
+                const hy = 40;
+                ctx.fillStyle = i < (3 - mgHitsRef.current) ? '#ff0055' : '#333';
+                ctx.beginPath();
+                ctx.moveTo(hx, hy);
+                ctx.bezierCurveTo(hx-10, hy-10, hx-20, hy+5, hx, hy+20);
+                ctx.bezierCurveTo(hx+20, hy+5, hx+10, hy-10, hx, hy);
+                ctx.fill();
+            }
+
+            ctx.restore();
+            return; // Skip rest of world drawing
+        }
+
         const camX = cameraXRef.current;
         const camY = (gameState === 'MG_MUSHROOM_JUMP') ? cameraYRef.current : 0;
 
@@ -1239,6 +1429,10 @@ function App() {
         }
         if (gameState === 'WORLD3_BOSS_INTRO' && interlude3Ref.current) {
             interlude3Ref.current.draw(ctx);
+            return;
+        }
+        if (gameState === 'WORLD3_ESCAPE_CUTSCENE') {
+            escapeCutsceneRef.current.draw(ctx);
             return;
         }
         if (gameState === 'ENDING_CUTSCENE') {
@@ -1647,8 +1841,33 @@ function App() {
             return p.life > 0;
         });
 
+        // Story Mode Escape UI (Fear Bar and Timer)
+        if (gameState === 'MG_ESCAPE' && currentMgRef.current === null) {
+            // Timer
+            ctx.fillStyle = '#fff';
+            ctx.font = 'bold 24px "Press Start 2P"';
+            ctx.textAlign = 'center';
+            const timeLeft = Math.max(0, Math.ceil(mgTimeLeftRef.current));
+            ctx.fillText(`TIME: ${timeLeft}s`, 400, 40);
+
+            // Fear Bar
+            const barW = 300; const barH = 15;
+            ctx.fillStyle = '#111'; ctx.fillRect(250, 60, barW, barH);
+            const fearRatio = Math.min(1, Math.max(0, mgFearRef.current / 100));
+            // Glitchy fear effect
+            const fearColor = `rgb(${100 + fearRatio*155}, 0, ${150 + Math.random()*50})`;
+            ctx.fillStyle = fearColor;
+            ctx.fillRect(250, 60, barW * fearRatio, barH);
+            ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.strokeRect(250, 60, barW, barH);
+            
+            ctx.fillStyle = fearRatio > 0.8 && Date.now() % 200 < 100 ? '#ff0000' : '#fff';
+            ctx.font = '10px "Press Start 2P"';
+            ctx.fillText("FEAR", 400, 90);
+        }
+
         ctx.restore();
     });
+
 
     return (
         <div className="game-container">
@@ -1687,19 +1906,24 @@ function App() {
                             fontFamily: 'var(--font-retro)' 
                         }}>VINN'S QUEST</h1>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', alignItems: 'center' }}>
+                            { (unlockedProgress.world > 1 || unlockedProgress.level > 1) && (
+                                <button 
+                                    className="level-btn" 
+                                    style={{ width: '280px', fontSize: '18px', borderColor: '#00f2ff', color: '#00f2ff' }}
+                                    onClick={() => loadLevel(unlockedProgress.world, unlockedProgress.level)}
+                                >
+                                    {language === 'en' ? 'CONTINUE' : 'CONTINUAR'}
+                                </button>
+                            )}
                             <button 
                                 className="level-btn" 
                                 style={{ width: '280px', fontSize: '18px' }}
-                                onClick={() => setGameState('INTRO_CUTSCENE')}
+                                onClick={() => {
+                                    setUnlockedProgress({ world: 1, level: 1 });
+                                    setGameState('INTRO_CUTSCENE');
+                                }}
                             >
                                 {t('PLAY')}
-                            </button>
-                            <button 
-                                className="level-btn" 
-                                style={{ width: '280px', fontSize: '18px', borderColor: '#ff00ff', color: '#ff00ff' }}
-                                onClick={() => loadLevel(3, 1)}
-                            >
-                                {t('PAINT_LAND') || '🎨 PAINT LAND'}
                             </button>
                             <button 
                                 className="level-btn" 
@@ -1799,6 +2023,21 @@ function App() {
                                         <button className={`level-btn ${language === 'en' ? '' : 'locked'}`} onClick={() => setLanguage('en')}>EN</button>
                                         <button className={`level-btn ${language === 'es' ? '' : 'locked'}`} onClick={() => setLanguage('es')}>ES</button>
                                     </div>
+                                </div>
+                                
+                                <div style={{ textAlign: 'center' }}>
+                                    <button 
+                                        className="level-btn locked" 
+                                        style={{ width: '200px', fontSize: '12px', borderColor: '#ff4444', color: '#ff4444' }}
+                                        onClick={() => {
+                                            if (window.confirm(language === 'en' ? "Delete all progress?" : "¿Borrar todo el progreso?")) {
+                                                localStorage.clear();
+                                                window.location.reload();
+                                            }
+                                        }}
+                                    >
+                                        {language === 'en' ? 'RESET PROGRESS' : 'REINICIAR PROGRESO'}
+                                    </button>
                                 </div>
 
                                 <button className="back-btn" onClick={() => setGameState('START_MENU')}>{t('BACK')}</button>

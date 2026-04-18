@@ -710,7 +710,7 @@ export class World2ClearCutscene {
     }
 }
 
-export type World3IntroPhase = 'ALTAR_SCENE' | 'VINN_ARRIVES' | 'INK_ANGRY' | 'GOLEM_SWORD' | 'INK_CHASE_START' | 'RUN_CIRCLES' | 'JUMP_OFF';
+export type World3IntroPhase = 'ALTAR_SCENE' | 'VINN_ARRIVES' | 'INK_ANGRY' | 'GOLEM_SWORD' | 'INK_CHASE_START' | 'RUN_CIRCLES' | 'JUMP_OFF' | 'QUEEN_REACTION';
 
 export class World3BossCutscene {
     phase: World3IntroPhase = 'ALTAR_SCENE';
@@ -1075,6 +1075,161 @@ export class World3BossCutscene {
             ctx.strokeStyle = '#ffcc00'; ctx.lineWidth = 4;
             ctx.beginPath(); ctx.moveTo(15, -10); ctx.lineTo(40, -30); ctx.stroke(); // Holding sword
         }
+        ctx.restore();
+    }
+}
+
+export class World3EscapeCutscene {
+    timer: number = 0;
+    dialogueIndex: number = 0;
+    language: 'en' | 'es' = 'en';
+    
+    currentDialogue: { speaker: string, text: string } | null = null;
+    dialogues: { speaker: string, text: string }[] = [];
+
+    dialogues_en = [
+        { speaker: 'Ink Colossus', text: '...Grr... you think you\'ve won?' },
+        { speaker: 'Ink Colossus', text: 'I\'ve demolished the castle! I closed the jump-off exits!' },
+        { speaker: 'Ink Colossus', text: 'The only way you can escape this castle is by the main entrance...' },
+        { speaker: 'Ink Colossus', text: '...and you\'ll never get there in time!' },
+        { speaker: 'Queen', text: 'We have to run, NOW!' }
+    ];
+
+    dialogues_es = [
+        { speaker: 'Coloso de Tinta', text: '...Grr... ¿Crees que has ganado?' },
+        { speaker: 'Coloso de Tinta', text: '¡He demolido el castillo! ¡He cerrado las salidas aéreas!' },
+        { speaker: 'Coloso de Tinta', text: 'La única forma de escapar es por la entrada principal...' },
+        { speaker: 'Coloso de Tinta', text: '...¡y nunca llegarán a tiempo!' },
+        { speaker: 'Reina', text: '¡Tenemos que correr, AHORA!' }
+    ];
+
+    setLanguage(lang: 'en' | 'es') {
+        this.language = lang;
+        this.dialogues = lang === 'en' ? this.dialogues_en : this.dialogues_es;
+    }
+
+    update(dt: number): boolean {
+        this.timer += dt;
+        
+        if (this.dialogueIndex < this.dialogues.length) {
+            this.currentDialogue = this.dialogues[this.dialogueIndex];
+        } else {
+            return true; // Sequence finished
+        }
+        return false;
+    }
+
+    advanceDialogue() {
+        if (this.dialogueIndex < this.dialogues.length) {
+            this.dialogueIndex++;
+            this.timer = 0;
+        }
+    }
+
+    draw(ctx: CanvasRenderingContext2D) {
+        ctx.save();
+        // Background - Dark crumbling castle
+        ctx.fillStyle = '#0a0015';
+        ctx.fillRect(0, 0, 1000, 500);
+
+        // Ground
+        ctx.fillStyle = '#222';
+        ctx.fillRect(0, 350, 1000, 150);
+        
+        // Vinn and Queen
+        this.drawHero(ctx, 300, 350, '#00f2ff');
+        this.drawQueen(ctx, 200, 310);
+
+        // Ink Colossus (Beaten and Bandaged)
+        this.drawInjuredInkColossus(ctx, 600, 300);
+
+        // Dialogue Box
+        if (this.currentDialogue) {
+            ctx.fillStyle = 'rgba(0,0,0,0.8)';
+            ctx.fillRect(100, 30, 800, 100);
+            ctx.strokeStyle = this.currentDialogue.speaker === 'Ink Colossus' ? '#ff00ff' : '#00f2ff';
+            ctx.lineWidth = 4;
+            ctx.strokeRect(100, 30, 800, 100);
+
+            ctx.fillStyle = '#fff';
+            ctx.font = 'bold 16px "Press Start 2P"';
+            ctx.textAlign = 'left';
+            ctx.fillText(this.currentDialogue.speaker, 120, 55);
+
+            ctx.font = '12px "Press Start 2P"';
+            const words = this.currentDialogue.text.split(' ');
+            let line = ''; let lineY = 80;
+            for (let n = 0; n < words.length; n++) {
+                const testLine = line + words[n] + ' ';
+                if (ctx.measureText(testLine).width > 760 && n > 0) { ctx.fillText(line, 120, lineY); line = words[n] + ' '; lineY += 20; }
+                else line = testLine;
+            }
+            ctx.fillText(line, 120, lineY);
+        }
+        ctx.restore();
+    }
+
+    drawInjuredInkColossus(ctx: CanvasRenderingContext2D, x: number, y: number) {
+        ctx.save(); ctx.fillStyle = '#000'; ctx.shadowBlur = 30; ctx.shadowColor = '#ff00ff';
+        ctx.beginPath();
+        for (let i = 0; i < 12; i++) {
+            const angle = (i / 12) * Math.PI * 2; const r = 100 + Math.sin(Date.now() / 200 + i) * 10;
+            const tx = x + Math.cos(angle) * r; const ty = y + Math.sin(angle) * r * 0.6;
+            if (i === 0) ctx.moveTo(tx, ty); else ctx.lineTo(tx, ty);
+        }
+        ctx.fill();
+        ctx.shadowBlur = 0;
+        
+        // Magenta dots, but one is missing and covered by a big bandage
+        for (let i = 0; i < 4; i++) { 
+            ctx.fillStyle = '#ff00ff'; ctx.beginPath(); 
+            ctx.arc(x - 30 + i * 20, y + Math.sin(Date.now() / 500 + i) * 15, 8, 0, Math.PI * 2); 
+            ctx.fill(); 
+        }
+        
+        // Bandages
+        ctx.fillStyle = '#eee';
+        // Big bandage over missing dot
+        ctx.fillRect(x + 40, y - 5, 25, 10);
+        ctx.fillRect(x + 45, y - 10, 15, 20);
+        
+        // Other bandages
+        ctx.save();
+        ctx.translate(x - 50, y - 40);
+        ctx.rotate(0.5);
+        ctx.fillRect(0, 0, 40, 8);
+        ctx.restore();
+        
+        ctx.save();
+        ctx.translate(x + 20, y + 40);
+        ctx.rotate(-0.3);
+        ctx.fillRect(0, 0, 30, 8);
+        ctx.restore();
+
+        ctx.restore();
+    }
+
+    drawHero(ctx: CanvasRenderingContext2D, x: number, y: number, color: string) {
+        ctx.save(); ctx.translate(x, y);
+        ctx.strokeStyle = color; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(0, -50, 12, 0, Math.PI * 2); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(0, -38); ctx.lineTo(0, 0); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(-10, 30); ctx.stroke(); ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(10, 30); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(0, -20); ctx.lineTo(-15, -10); ctx.stroke(); 
+        ctx.beginPath(); ctx.moveTo(0, -20); ctx.lineTo(15, -10); ctx.stroke();
+        // Weapon
+        ctx.strokeStyle = '#fff'; ctx.lineWidth = 4;
+        ctx.beginPath(); ctx.moveTo(15, -10); ctx.lineTo(40, -30); ctx.stroke();
+        ctx.restore();
+    }
+
+    drawQueen(ctx: CanvasRenderingContext2D, x: number, y: number) {
+        ctx.save();
+        ctx.fillStyle = '#ff00ff';
+        ctx.beginPath(); ctx.moveTo(x - 15, y + 40); ctx.lineTo(x + 15, y + 40); ctx.lineTo(x, y - 10); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = '#ffdbac'; ctx.beginPath(); ctx.arc(x, y - 15, 10, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#ffcc00'; ctx.beginPath();
+        ctx.moveTo(x - 10, y - 25); ctx.lineTo(x - 5, y - 18); ctx.lineTo(x, y - 30); ctx.lineTo(x + 5, y - 18); ctx.lineTo(x + 10, y - 25);
+        ctx.lineTo(x + 10, y - 10); ctx.lineTo(x - 10, y - 10); ctx.closePath(); ctx.fill();
         ctx.restore();
     }
 }
