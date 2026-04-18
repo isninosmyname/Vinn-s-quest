@@ -6,7 +6,7 @@ A vibrant, retro-inspired 2D action-platformer built with React, TypeScript, and
 )
 
 # Alert!
-This game is in alpha so there will be many errors and bugs. Please be patient as I work on improving the game.
+This game is in 1.0 so there will be many errors and bugs. Please be patient as I work on improving the game.
 
 ## 📖 The Story
 
@@ -20,21 +20,23 @@ Join **Vinn**, a loyal knight of the realm, on an epic journey to rescue the Que
   - 🎨 **Paint Land**: A surreal world where the ground itself can be a hazard.
 - **Epic Boss Battles**: Face off against the **Golem**, the **Blaze King**, and the titan of the ink, the **Ink Colossus**.
 - **Dynamic Gameplay**:
-  - Fluid movement and combat mechanics.
-  - Power-ups like the **Double Jump** to reach new heights.
-  - Environmental hazards like sinking paint and bouncy mushroom pads.
-- **Cinematic Narrative**: Fully animated intro and ending cutscenes that tell Vinn's story.
+  - **3D Stone Smash**: A first-person reflexive minigame where you slash flying boulders in 3D space.
+  - **The escape**: A high-stakes, time-limited finale featuring a **Fear Bar** that increases as the castle crumbles around you.
+  - **Local Persistence**: A robust save system that tracks level progress and minigame high scores. Use the **CONTINUE** button to resume your journey.
+  - **Two-Player Mode**: Play solo or in 'Duo' mode with a friend, featuring customizable hero colors.
+  - **Bilingual**: Full support for both **English** and **Spanish**.
+- **Cinematic Narrative**: Fully animated cutscenes, including a dramatic post-boss escape sequence where a bandaged Ink Colossus attempts to trap Vinn in his crumbling fortress.
 - **Retro Aesthetics**: Glowing neon visuals, particle effects, and a custom "Press Start 2P" inspired UI.
 
 ## ⌨️ Controls
 
-| Action | Key(s) |
-| :--- | :--- |
-| **Move Left / Right** | `A` / `D` or `Left` / `Right` Arrow Keys |
-| **Jump** | `W`, `Up` Arrow, or `Ctrl` |
-| **Attack** | `Space` |
-| **Advance Dialogue** | `Space` |
-| **Skip Intro** | Click the "Skip Cutscene" button |
+| Action | Player 1 | Player 2 / Alternative |
+| :--- | :--- | :--- |
+| **Move Left / Right** | `A` / `D` | `Left` / `Right` Arrow Keys |
+| **Jump** | `W` | `Up` Arrow |
+| **Attack / Advance** | `Space` | `Enter` |
+| **Skip Cutscene** | Click Button | |
+| **3D Slash** | `Mouse Click` | (Move cursor to aim) |
 
 ## 🛠️ Tech Stack
 
