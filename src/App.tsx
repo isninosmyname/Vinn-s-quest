@@ -383,69 +383,93 @@ function App() {
 
     const drawCastle = (ctx: CanvasRenderingContext2D, x: number) => {
         ctx.save();
-        const baseWidth = 300;
+        const baseWidth = 500;
         const baseY = 460;
         
         // Timer for door animation (0.0 to 1.0)
-        // Sequence lasts 180 frames. Doors open over the middle 60 frames.
         const timerVal = castleSequenceRef.current.timer;
         const doorOpenFactor = timerVal < 120 ? Math.min(1.0, (120 - timerVal) / 60) : 0;
 
-        // Draw Foundation Shadow
-        ctx.fillStyle = 'rgba(0,0,0,0.5)';
-        ctx.fillRect(x - 100, baseY - 50, baseWidth + 200, 100);
+        // Draw Imposing Base
+        ctx.fillStyle = '#050010';
+        ctx.fillRect(x - 200, baseY - 50, baseWidth + 400, 100);
 
-        // Draw Body (Dark Ink Stone)
+        // Main Keep (Large and dark)
         ctx.fillStyle = '#0a0015';
-        ctx.strokeStyle = '#2d0040';
-        ctx.lineWidth = 4;
-        ctx.fillRect(x, baseY - 350, baseWidth, 350);
-        ctx.strokeRect(x, baseY - 350, baseWidth, 350);
-
-        // Accent lines
-        ctx.strokeStyle = '#4b0082';
-        ctx.beginPath();
-        for(let i=1; i<5; i++) {
-            ctx.moveTo(x, baseY - i*70); ctx.lineTo(x + baseWidth, baseY - i*70);
-        }
-        ctx.stroke();
-
-        // Towers
-        ctx.fillStyle = '#100020';
-        ctx.fillRect(x - 40, baseY - 420, 80, 420); // Left
-        ctx.fillRect(x + baseWidth - 40, baseY - 420, 80, 420); // Right
-        ctx.strokeRect(x - 40, baseY - 420, 80, 420);
-        ctx.strokeRect(x + baseWidth - 40, baseY - 420, 80, 420);
+        ctx.fillRect(x, baseY - 450, baseWidth, 450);
         
-        // Battlements
-        ctx.fillStyle = '#0a0015';
-        for(let i=0; i<6; i++) {
-            ctx.fillRect(x - 45 + i*80, baseY - 440, 40, 20);
+        // Lava accents (Glowing cracks)
+        ctx.shadowBlur = 10; ctx.shadowColor = '#ff2200';
+        ctx.strokeStyle = '#330000'; ctx.lineWidth = 1;
+        for(let i=0; i<10; i++) {
+             ctx.beginPath();
+             ctx.moveTo(x + Math.random()*baseWidth, baseY - Math.random()*400);
+             ctx.lineTo(x + Math.random()*baseWidth, baseY - Math.random()*400);
+             ctx.strokeStyle = i % 2 === 0 ? '#ff2200' : '#440000';
+             ctx.stroke();
         }
+        ctx.shadowBlur = 0;
 
-        // Gate Area
+        // Several Towers of varying heights
+        const towerWidth = 80;
+        const drawTower = (tx: number, th: number) => {
+            ctx.fillStyle = '#100020';
+            ctx.fillRect(tx, baseY - th, towerWidth, th);
+            ctx.strokeStyle = '#ff00ff'; ctx.lineWidth = 2;
+            ctx.strokeRect(tx, baseY - th, towerWidth, th);
+            // Spikes on top
+            ctx.fillStyle = '#220033';
+            ctx.beginPath();
+            ctx.moveTo(tx, baseY - th);
+            ctx.lineTo(tx + towerWidth/2, baseY - th - 40);
+            ctx.lineTo(tx + towerWidth, baseY - th);
+            ctx.fill();
+        };
+
+        drawTower(x - 60, 500); // Far Left
+        drawTower(x + 20, 350); // Mid Left
+        drawTower(x + baseWidth - 100, 350); // Mid Right
+        drawTower(x + baseWidth - 20, 500); // Far Right
+
+        // Wedding Banners (Pink/Magenta)
+        ctx.fillStyle = '#ff00ff';
+        ctx.fillRect(x + 50, baseY - 400, 30, 200);
+        ctx.fillRect(x + baseWidth - 80, baseY - 400, 30, 200);
+
+        // Gate Arch
         ctx.fillStyle = '#000';
-        ctx.fillRect(x + 100, baseY - 120, 100, 120);
+        ctx.beginPath();
+        ctx.moveTo(x + 150, baseY);
+        ctx.lineTo(x + 150, baseY - 180);
+        ctx.quadraticCurveTo(x + 250, baseY - 240, x + 350, baseY - 180);
+        ctx.lineTo(350 + x, baseY);
+        ctx.fill();
 
-        // Doors (animated)
+        // Doors (Animated sliding open)
+        const doorYOffset = doorOpenFactor * 200;
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(x + 150, baseY - 220, 200, 220);
+        ctx.clip(); // Keep doors within the arch area
+
         ctx.fillStyle = '#2d0045';
         ctx.strokeStyle = '#ff00ff';
-        ctx.lineWidth = 2;
+        ctx.lineWidth = 4;
         
-        const doorYOffset = doorOpenFactor * 130;
         // Left Door
-        ctx.fillRect(x + 100, baseY - 120 - doorYOffset, 50, 120);
-        ctx.strokeRect(x + 100, baseY - 120 - doorYOffset, 50, 120);
+        ctx.fillRect(x + 150 - doorYOffset/2, baseY - 220, 100, 220);
+        ctx.strokeRect(x + 150 - doorYOffset/2, baseY - 220, 100, 220);
         // Right Door
-        ctx.fillRect(x + 150, baseY - 120 - doorYOffset, 50, 120);
-        ctx.strokeRect(x + 150, baseY - 120 - doorYOffset, 50, 120);
+        ctx.fillRect(x + 250 + doorYOffset/2, baseY - 220, 100, 220);
+        ctx.strokeRect(x + 250 + doorYOffset/2, baseY - 220, 100, 220);
 
-        // Handles
+        // Giant Gold Handles
         ctx.fillStyle = '#ffcc00';
         ctx.beginPath();
-        ctx.arc(x + 145, baseY - 60 - doorYOffset, 4, 0, Math.PI*2);
-        ctx.arc(x + 155, baseY - 60 - doorYOffset, 4, 0, Math.PI*2);
+        ctx.arc(x + 240 - doorYOffset/2, baseY - 100, 8, 0, Math.PI*2);
+        ctx.arc(x + 260 + doorYOffset/2, baseY - 100, 8, 0, Math.PI*2);
         ctx.fill();
+        ctx.restore();
 
         ctx.restore();
     };
@@ -861,9 +885,7 @@ function App() {
             if (vinnRef.current.x >= levelConfig.length - 100) {
                 if (!levelConfig.isBoss) {
                     if (currentWorld === 3 && currentLevel === 4) {
-                        interlude3Ref.current = new World3BossCutscene();
-                        interlude3Ref.current.setLanguage(language);
-                        setGameState('WORLD3_BOSS_INTRO');
+                        // Handled by castle sequence timer.
                     } else if (currentLevel < 5) {
                         setGameState('LEVEL_TRANSITION');
                     }
@@ -900,8 +922,13 @@ function App() {
                     castleSequenceRef.current.timer--;
                     if (castleSequenceRef.current.timer <= 0) {
                         castleSequenceRef.current.active = false;
+                        interlude3Ref.current = new World3BossCutscene();
+                        interlude3Ref.current.setLanguage(language);
+                        setGameState('WORLD3_BOSS_INTRO');
                     }
                     // Pan camera to the castle (end of level)
+                    targetCamX = 4000 - GAME_WIDTH;
+                } else if (castleSequenceRef.current.triggered) {
                     targetCamX = 4000 - GAME_WIDTH;
                 }
             }
@@ -1208,6 +1235,10 @@ function App() {
         }
         if (gameState === 'WORLD2_INTERLUDE' && interlude2Ref.current) {
             interlude2Ref.current.draw(ctx);
+            return;
+        }
+        if (gameState === 'WORLD3_BOSS_INTRO' && interlude3Ref.current) {
+            interlude3Ref.current.draw(ctx);
             return;
         }
         if (gameState === 'ENDING_CUTSCENE') {
