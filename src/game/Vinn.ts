@@ -12,7 +12,10 @@ export class Vinn {
   onGround: boolean = true;
   
   hasDoubleJump: boolean = false;
+  doubleJumpTimer = 0;
+  isCrouching = false;
   canDoubleJump: boolean = false;
+  jumpChargesEnabled: boolean = false;
   
   isSinking: boolean = false;
   sinkTimer: number = 0;
@@ -33,6 +36,7 @@ export class Vinn {
   jumpCharges: number = 0;
   maxJumpCharges: number = 3;
   rechargeTimer: number = 0;
+  speedBoostTimer: number = 0;
 
   headRadius = 12;
   spineLength = 35;
@@ -68,6 +72,27 @@ export class Vinn {
       this.hitTimer = 0;
       this.isSinking = false;
       this.isSlipping = false;
+      this.canDoubleJump = true;
+      this.jumpCharges = this.jumpChargesEnabled ? this.maxJumpCharges : 0;
+      this.rechargeTimer = 0;
+      this.speedBoostTimer = 0;
+      this.hasDoubleJump = false;
+      this.doubleJumpTimer = 0;
+      this.isCrouching = false;
+      this.lastSafeX = x;
+      this.lastSafeY = y;
+      this.attackTimer = 0;
+  }
+
+  collectDoubleJump() {
+    this.hasDoubleJump = true;
+    this.doubleJumpTimer = 60;
+    this.canDoubleJump = true;
+  }
+
+  get bounds() {
+    const bottom = this.y + this.limbLength;
+    return { left: this.x - 16, right: this.x + 16, top: bottom - (this.isCrouching ? 38 : 89), bottom };
   }
 
   takeDamage(amount: number, knockbackDir?: number, knockbackForce: number = 10) {
@@ -97,20 +122,32 @@ export class Vinn {
   }
 
   jump() {
+    if (this.health <= 0 || this.isCrouching) return;
     if (this.onGround || this.isSinking) {
       this.vy = -12;
       this.onGround = false;
       this.isSinking = false;
       this.state = 'JUMPING';
-    } else if (this.jumpCharges > 0) {
+      this.canDoubleJump = true;
+    } else if (this.jumpChargesEnabled && this.jumpCharges > 0) {
       this.vy = -10;
       this.jumpCharges--;
+      this.state = 'JUMPING';
+    } else if (this.hasDoubleJump && this.canDoubleJump) {
+      this.vy = -12;
+      this.canDoubleJump = false;
       this.state = 'JUMPING';
     }
   }
 
-  update(dt: number, keys: Record<string, boolean>, maxX: number = 2350, platforms: {x: number, y: number, w: number, h: number, type?: 'MUSHROOM' | 'PAINT' | 'NORMAL'}[] = [], speedMult: number = 1.0, minX: number = 50) {
+  update(dt: number, keys: Record<string, boolean>, maxX: number = 2350, platforms: {x: number, y: number, w: number, h?: number, type?: 'MUSHROOM' | 'PAINT' | 'NORMAL'}[] = [], speedMult: number = 1.0, minX: number = 50) {
     this.animTimer += dt;
+    if (this.doubleJumpTimer > 0) {
+      this.doubleJumpTimer = Math.max(0, this.doubleJumpTimer - dt);
+      if (this.doubleJumpTimer === 0) this.hasDoubleJump = false;
+    }
+    this.isCrouching = !!keys['c'] && this.onGround && !this.isSlipping;
+    if (this.isCrouching) speedMult *= 0.55;
     
     if (this.speedBoostTimer > 0) {
         this.speedBoostTimer -= dt;
@@ -118,14 +155,19 @@ export class Vinn {
     }
     this.currentSpeedScale = speedMult;
 
-    // Recharge logic: 1 charge every 4 seconds
-    if (this.jumpCharges < this.maxJumpCharges) {
-        this.rechargeTimer += dt;
-        if (this.rechargeTimer >= 4.0) {
-            this.jumpCharges++;
+    // Recharge logic: 1 charge every 4 seconds (only if enabled)
+    if (this.jumpChargesEnabled) {
+        if (this.jumpCharges < this.maxJumpCharges) {
+            this.rechargeTimer += dt;
+            if (this.rechargeTimer >= 4.0) {
+                this.jumpCharges++;
+                this.rechargeTimer = 0;
+            }
+        } else {
             this.rechargeTimer = 0;
         }
     } else {
+        this.jumpCharges = 0;
         this.rechargeTimer = 0;
     }
 
@@ -200,6 +242,10 @@ export class Vinn {
           }
       }
     });
+
+    if (this.onGround) {
+        this.canDoubleJump = true;
+    }
 
     if (this.isSinking) {
         this.vy = Math.min(this.vy, 1);
@@ -292,6 +338,21 @@ export class Vinn {
         ctx.save(); ctx.globalAlpha = 0.5; ctx.strokeStyle = '#fff'; ctx.lineWidth = 2;
         ctx.beginPath(); ctx.arc(relX, relY, 10, 0, Math.PI*2); ctx.stroke();
         ctx.strokeRect(relX - 10, relY + 15, 20, 2);
+        ctx.restore(); return;
+    }
+
+    if (this.isCrouching) {
+        const feet = relY + this.limbLength;
+        const step = Math.sin(animTimer * 12) * Math.min(6, Math.abs(this.vx) * 3);
+        ctx.save(); ctx.strokeStyle = isHit ? '#fff' : color; ctx.lineWidth = 4;
+        ctx.lineCap = 'round';
+        ctx.strokeRect(relX + direction * 5 - 9, feet - 36, 18, 16);
+        ctx.beginPath(); ctx.moveTo(relX + direction * 5, feet - 20); ctx.lineTo(relX - direction * 12, feet - 12);
+        ctx.lineTo(relX - 22, feet - 8); ctx.lineTo(relX - 18 + step, feet);
+        ctx.moveTo(relX - direction * 12, feet - 12); ctx.lineTo(relX + 12, feet - 8); ctx.lineTo(relX + 18 - step, feet);
+        ctx.moveTo(relX, feet - 20); ctx.lineTo(relX + direction * 22, feet - 14); ctx.stroke();
+        ctx.strokeStyle = '#ffdf78'; ctx.beginPath(); ctx.moveTo(relX + direction * 22, feet - 14);
+        ctx.lineTo(relX + direction * (state === 'ATTACKING' ? 76 : 48), feet - 14); ctx.stroke();
         ctx.restore(); return;
     }
 

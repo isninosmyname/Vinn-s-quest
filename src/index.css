@@ -277,6 +277,7 @@ canvas {
   font-size: 0.9rem;
 }
 .hud button {
+  pointer-events: auto;
   background: var(--glass-bg);
   border: 2px solid var(--vinn-glow);
   color: #fff;
@@ -437,6 +438,7 @@ canvas {
 }
 
 .level-btn {
+  pointer-events: auto;
   width: 60px;
   height: 60px;
   background: #a0522d;
@@ -561,4 +563,28 @@ canvas {
     display: none !important;
   }
 }
-
+.map-actions, .victory-actions {
+    position: absolute;
+    bottom: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    justify-content: center;
+    width: 92%;
+    pointer-events: auto;
+    z-index: 30;
+}
+.map-actions button, .victory-actions button {
+    border: 3px solid #664749;
+    background: #ffe3a3;
+    color: #382d43;
+    padding: 9px 12px;
+    font: bold 12px monospace;
+    cursor: pointer;
+    box-shadow: 3px 3px 0 #473d44;
+}
+.map-actions button:disabled { opacity: .45; cursor: default; }
+.victory-actions h2 { display: none; }
+.map-actions button:focus-visible, .victory-actions button:focus-visible { outline: 3px solid #f24b65; outline-offset: 3px; }

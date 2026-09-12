@@ -21,6 +21,12 @@ export class Boss {
   throwTimer: number = 0;
   bombStunTimer: number = 0;
   throwReady: boolean = false; // signals App.tsx to spawn a projectile
+  // Blaze King Overhaul
+  rainTimer: number = 0;
+  rainReady: boolean = false;
+  isEnraged: boolean = false;
+  angryTransitionTimer: number = 0;
+  defeatedFired: boolean = false;
 
   constructor(x: number, y: number, type: BossType) {
     this.x = x;
@@ -88,59 +94,85 @@ export class Boss {
             }
         }
     } else if (this.type === 'BLAZE_KING') {
-        const lowHealth = this.health < this.maxHealth * 0.35;
-        if (this.state === 'FLY_UP') {
-            this.state = 'WALKING';
+        const threshold = this.maxHealth * 0.4;
+        
+        // Enraged transition trigger
+        if (!this.isEnraged && this.health < threshold && this.state !== 'ANGRY_TRANSITION') {
+            this.state = 'ANGRY_TRANSITION';
+            this.angryTransitionTimer = 0;
             this.attackTimer = 0;
         }
 
-        if (this.state === 'WALKING' || this.state === 'IDLE') {
-            this.x += Math.sin(this.animTimer * 3) * 5;
-            if (Math.abs(dist) < 400) {
-                this.x += (dist > 0 ? 1 : -1) * (this.phase === 2 ? 4 : 2);
+        if (this.state === 'ANGRY_TRANSITION') {
+            this.isInvulnerable = true;
+            this.angryTransitionTimer += dt;
+            if (this.angryTransitionTimer > 3.0) {
+                this.isEnraged = true;
+                this.state = 'WALKING';
             }
-            this.state = 'WALKING';
+        } else if (this.state === 'WALKING' || this.state === 'IDLE') {
+            this.x += Math.sin(this.animTimer * 3) * 5;
+            const chaseDist = this.isEnraged ? 600 : 400;
+            if (Math.abs(dist) < chaseDist) {
+                this.x += (dist > 0 ? 1 : -1) * (this.isEnraged ? 5 : 3);
+            }
             this.attackTimer += dt;
-            const cooldown = lowHealth ? 2.5 : 3.8;
+            const cooldown = this.isEnraged ? 2.0 : 3.0;
             if (this.attackTimer > cooldown) {
                 this.attackTimer = 0;
-                this.state = 'FIRE_SUMMON';
-                this.isInvulnerable = true;
+                this.state = 'RAINING_FIRE';
+                this.rainTimer = 0;
             }
-        } else if (this.state === 'FIRE_SUMMON') {
+        } else if (this.state === 'RAINING_FIRE') {
+            this.isInvulnerable = true;
+            this.rainTimer += dt;
+            this.attackTimer += dt;
+            
+            // Pulse the rain signal
+            const rainInterval = this.isEnraged ? 0.15 : 0.4;
+            if (this.rainTimer > rainInterval) {
+                this.rainTimer = 0;
+                this.rainReady = true; // Signal App.tsx
+            }
+
+            const rainDuration = this.isEnraged ? 3.0 : 2.5;
+            if (this.attackTimer > rainDuration) {
+                this.attackTimer = 0;
+                this.state = 'AERIAL_CHASE';
+            }
+        } else if (this.state === 'AERIAL_CHASE') {
             this.isInvulnerable = true;
             this.attackTimer += dt;
-            if (this.attackTimer > 0.8) {
+            // Float higher
+            const targetY = 220;
+            this.y += (targetY - this.y) * 0.05;
+            // Chase player X
+            this.x += (dist > 0 ? 1 : -1) * (this.isEnraged ? 8 : 6);
+            
+            if (this.attackTimer > 2.0) {
                 this.attackTimer = 0;
-                this.state = 'BACKING';
+                this.state = 'CRUSHING';
             }
-        } else if (this.state === 'BACKING') {
+        } else if (this.state === 'CRUSHING') {
             this.isInvulnerable = true;
-            this.attackTimer += dt;
-            this.x -= this.direction * 3;
-            if (this.attackTimer > 1.2) {
+            this.y += this.isEnraged ? 20 : 15;
+            if (this.y >= 460) {
+                this.y = 460;
+                this.state = 'DIZZY';
                 this.attackTimer = 0;
-                this.fireballDirection = dist > 0 ? 1 : -1;
-                this.state = 'FIREBALL';
             }
-        } else if (this.state === 'FIREBALL') {
-            this.isInvulnerable = true;
-            this.attackTimer += dt;
-            this.x += this.fireballDirection * (this.phase === 2 ? 4 : 2);
-            if (this.attackTimer > 2.2) {
-                this.attackTimer = 0;
-                this.state = 'STUNNED';
-            }
-        } else if (this.state === 'STUNNED') {
+        } else if (this.state === 'DIZZY') {
             this.isInvulnerable = false;
             this.attackTimer += dt;
-            if (this.attackTimer > 4.0) {
+            const dizzyDuration = this.isEnraged ? 2.5 : 4.0;
+            if (this.attackTimer > dizzyDuration) {
                 this.state = 'WAKING';
                 this.attackTimer = 0;
             }
         } else if (this.state === 'WAKING') {
             this.isInvulnerable = true;
             this.attackTimer += dt;
+            this.y += (300 - this.y) * 0.05; // Return to hover height
             if (this.attackTimer > 1.0) {
                 this.state = 'WALKING';
                 this.attackTimer = 0;
@@ -273,13 +305,27 @@ export class Boss {
       ctx.fillStyle = gradient;
       ctx.beginPath(); ctx.arc(relX, this.y - 60, 60 + flicker/2, 0, Math.PI * 2); ctx.fill();
       
-      ctx.fillStyle = isInvulnerable ? '#fff' : '#ff2200';
+      ctx.fillStyle = isInvulnerable ? '#fff' : (this.isEnraged ? '#ff0000' : '#ff2200');
       for(let i=0; i<5; i++) {
           ctx.beginPath();
           ctx.moveTo(relX - 40 + i*20, this.y - 110);
           ctx.lineTo(relX - 30 + i*20, this.y - 150 - Math.random()*20);
           ctx.lineTo(relX - 20 + i*20, this.y - 110);
           ctx.fill();
+      }
+
+      // Dizzy Effect
+      if (state === 'DIZZY') {
+          ctx.strokeStyle = '#fff';
+          ctx.lineWidth = 2;
+          for(let i=0; i<3; i++) {
+              const angle = animTimer * 10 + i * (Math.PI*2/3);
+              const dx = Math.cos(angle) * 40;
+              const dy = Math.sin(angle) * 15;
+              ctx.beginPath();
+              ctx.arc(relX + dx, this.y - 160 + dy, 4, 0, Math.PI*2);
+              ctx.stroke();
+          }
       }
     } else if (type === 'INK_COLOSSUS') {
       ctx.shadowColor = state === 'BOMB_STUNNED' ? '#ff00ff' : (state === 'DEFEATED' ? '#ff0000' : '#000');
