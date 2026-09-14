@@ -19,6 +19,12 @@ const { FOREST_LEVELS, DUFF_ARENA } = source('ForestWorld');
 const { World1Map } = source('WorldMap');
 const ground = [{ x: 0, y: 460, w: 20000 }];
 const hero = new Vinn(100, 430);
+for (const player of [hero, new Vinn(150, 430, '#ff00ff', 'SPIKY', 'Jhon')]) {
+  assert.equal(player.maxHealth, 26);
+  assert.equal(player.health, 26);
+  player.takeDamage(3); assert.equal(player.health, 23);
+  player.reset(100, 430); assert.equal(player.health, 26);
+}
 hero.collectDoubleJump();
 for (let i = 0; i < 3000; i++) hero.update(1 / 60, {}, 19000, ground);
 assert(hero.hasDoubleJump && hero.doubleJumpTimer < 11);
@@ -56,10 +62,10 @@ const duff = new DuffBoss(DUFF_ARENA); const p = new Vinn(DUFF_ARENA + 100, 430)
 duff.update(1 / 60, [p], false); assert.equal(duff.phase, 'INTRO');
 duff.startBattle(); duff.update(1.5, [p], false); assert.equal(duff.phase, 'POLE_RUN');
 // Standing collides with the high bar; grounded crouching clears it.
-p.x = duff.poles[0].x + 40; duff.update(0, [p], false); assert.equal(p.health, 19);
-p.isHit = false; p.isCrouching = true; duff.update(0, [p], false); assert.equal(p.health, 19);
-p.x = duff.poles[1].x + 40; duff.update(0, [p], false); assert.equal(p.health, 18);
-p.isHit = false; p.isCrouching = false; p.y = 290; duff.update(0, [p], false); assert.equal(p.health, 18);
+p.x = duff.poles[0].x + 40; duff.update(0, [p], false); assert.equal(p.health, p.maxHealth - 1);
+p.isHit = false; p.isCrouching = true; duff.update(0, [p], false); assert.equal(p.health, p.maxHealth - 1);
+p.x = duff.poles[1].x + 40; duff.update(0, [p], false); assert.equal(p.health, p.maxHealth - 2);
+p.isHit = false; p.isCrouching = false; p.y = 290; duff.update(0, [p], false); assert.equal(p.health, p.maxHealth - 2);
 p.y = 430;
 for (let round = 0; round < 4; round++) {
   p.x = duff.leftButtonX; duff.update(0, [p], true); assert.equal(duff.phase, 'POLE_RUN');
@@ -73,7 +79,67 @@ for (let round = 0; round < 4; round++) {
   p.y = duff.y; duff.update(0, [p], false); assert.equal(duff.health, 3 - round);
   if (round < 3) { assert.equal(duff.phase, 'THROW_BACK'); duff.update(1.3, [p], false); assert.equal(duff.phase, 'POLE_RUN'); assert.equal(p.y, 430); }
 }
-assert.equal(duff.phase, 'DEFEATED');
+assert.equal(duff.phase, 'ESCAPE_DIALOGUE');
+assert(duff.frozen); duff.update(3, [p], false); assert.equal(duff.phase, 'ESCAPE_DIALOGUE');
+duff.advanceDialogue(); assert.equal(duff.phase, 'ESCAPING');
+duff.update(1.6, [p], false); assert.equal(duff.phase, 'DEFEATED');
 const map = new World1Map(); map.open(4, 4); map.moveSelection(1); assert.equal(map.selectedLevel, 4);
 map.open(5, 5, [1, 2, 3, 4]); assert(map.completed.includes(4)); assert.equal(map.selectedLevel, 5);
 console.log('PASS: 8 traversable routes, power-up renewal/expiry, crouch clearance, wildlife, map locks and all four Duff rounds.');
+
+const { ForestEncounter } = source('ForestEncounter');
+for (const kind of ['BEAR', 'GOLEM']) {
+  const room = new ForestEncounter(kind, 7200), hero = new Vinn(6100, 430);
+  hero.onGround = true;
+  assert.equal(room.bear, null); assert.equal(room.boss, null);
+  assert(!room.canEnter([hero])); hero.x = room.doorX - 50; assert(room.canEnter([hero]));
+  room.enter(); room.advanceDialogue(); assert.equal(room.phase, 'ENTERING');
+  room.updateScene(0.46); assert(room.inside && room.entryReady);
+  room.updateScene(0.45); hero.x = room.start + 140;
+  assert.equal(room.phase, kind === 'BEAR' ? 'FIGHT' : 'ARRIVAL');
+  if (kind === 'GOLEM') {
+    room.updateScene(0.75); assert(room.boss.y > -220 && room.boss.y < 460);
+    room.advanceDialogue(); assert.equal(room.dialogueIndex, 0); assert.equal(room.boss.y, 460);
+    assert.equal(room.dialogue.en, 'This the knight that crushed you?');
+    room.advanceDialogue(); assert.equal(room.dialogue.speaker, 'Duff');
+    room.advanceDialogue(); assert.equal(room.dialogue.en, 'Well we have the knight. you ready?');
+    room.advanceDialogue(); assert.equal(room.phase, 'FIGHT'); assert.equal(room.boss.state, 'FLY_UP');
+    room.boss.state = 'FALLING'; room.boss.y = 449;
+    room.boss.update(1 / 60, hero.x); assert(room.boss.landingReady);
+    room.updateFight(0, [hero]); assert.equal(room.hazards.length, 2);
+    assert(room.hazards[0].vx < 0 && room.hazards[1].vx > 0);
+    room.updateFight(0, [hero]); assert.equal(room.hazards.length, 2, 'No duplicate landing waves');
+    room.hazards = [];
+    for (let i = 0; i < 195; i++) { room.updateScene(1 / 60); room.updateFight(1 / 60, [hero]); }
+    assert(room.hazards.some(h => h.kind === 'SWORD'), 'Duff must throw swords during the fight');
+    room.boss.health = 0;
+  } else {
+    room.bear.stompCooldown = 0;
+    room.bear.update(1 / 60, room.bear.x - 250, room.platforms);
+    assert.equal(room.bear.attackKind, 'STOMP'); assert(!room.bear.stompReady);
+    for (let i = 0; i < 70; i++) room.bear.update(1 / 60, room.bear.x - 250, room.platforms);
+    assert(room.bear.stompReady);
+    room.updateFight(0, [hero]); assert.equal(room.hazards.length, 1);
+    room.updateFight(0, [hero]); assert.equal(room.hazards.length, 1, 'Only one wave per stomp');
+    room.bear.health = 0;
+  }
+  room.updateFight(0, [hero]); assert(room.cleared); assert.equal(room.hazards.length, 0);
+}
+// Jump clearance and swept collision, including two-player damage tracking.
+const arena = new ForestEncounter('BEAR', 7200); arena.enter(); arena.updateScene(1);
+const grounded = new Vinn(6500, 430), jumping = new Vinn(6500, 300);
+arena.addWaves(6400, false, 1); arena.updateFight(0.5, [grounded, jumping]);
+assert.equal(grounded.health, grounded.maxHealth - 2); assert.equal(jumping.health, jumping.maxHealth);
+arena.updateFight(0.01, [grounded, jumping]); assert.equal(grounded.health, grounded.maxHealth - 2);
+console.log('PASS: real room entry, bear stomp telegraph, two landing waves, jump clearance, Duff sword support, exit gates and window escape.');
+
+const { Boss } = source('Boss');
+for (const fps of [30, 60, 120]) {
+  const golem = new Boss(6500, -200, 'GOLEM'); golem.state = 'FALLING';
+  let frames = 0;
+  while (golem.state === 'FALLING' && frames < fps * 2) { golem.update(1 / fps, 6400); frames++; }
+  assert(frames / fps >= 0.9 && frames / fps <= 0.95, 'Golem descent should take about 0.92 seconds');
+  assert.equal(golem.y, 460); assert.equal(golem.state, 'STUNNED'); assert(golem.landingReady);
+  golem.landingReady = false; golem.update(1 / fps, 6400); assert(!golem.landingReady);
+}
+console.log('PASS: slower Golem descent at 30/60/120 FPS; landing stun and shockwave signal preserved.');

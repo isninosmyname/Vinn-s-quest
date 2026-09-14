@@ -23,6 +23,12 @@ const action = process.argv[2] || 'inspect';
   await send('Runtime.enable'); await send('Page.enable');
   await send('Emulation.setDeviceMetricsOverride', { width: 1100, height: 700, deviceScaleFactor: 1, mobile: false });
   if (!tab.url.includes('localhost:5173')) { await send('Page.navigate', { url: 'http://localhost:5173' }); await delay(1800); }
+  if (action.startsWith('encounter-')) { await send('Page.navigate', { url: 'http://localhost:5173/scripts/encounter-qa.html' }); await delay(1500); }
+  for (let attempt = 0; attempt < 40; attempt++) {
+    if (await evaluate('!!document.querySelector("canvas")')) break;
+    await delay(500);
+  }
+  if (!await evaluate('!!document.querySelector("canvas")')) throw new Error('Game did not render: ' + await evaluate('document.body.innerText'));
   const click = async text => {
     const point = await evaluate(`(() => { const b = [...document.querySelectorAll('button')].find(b => b.textContent.trim() === ${JSON.stringify(text)}); if (!b) return null; const r = b.getBoundingClientRect(); return { x: r.x + r.width/2, y: r.y + r.height/2 }; })()`);
     if (!point) throw new Error('Missing button: ' + text);
@@ -30,6 +36,54 @@ const action = process.argv[2] || 'inspect';
     await send('Input.dispatchMouseEvent', { type: 'mouseReleased', button: 'left', clickCount: 1, ...point }); await delay(200);
   };
   const key = async (key, type) => send('Input.dispatchKeyEvent', { type, key, code: key === ' ' ? 'Space' : 'Key' + key.toUpperCase(), windowsVirtualKeyCode: key === ' ' ? 32 : key.toUpperCase().charCodeAt(0) });
+  const tap = async k => { await key(k, 'keyDown'); await delay(100); await key(k, 'keyUp'); };
+  if (action.startsWith('encounter-')) {
+    if (action === 'encounter-duff' || action === 'encounter-escape') {
+      await click('Duff final hit'); await tap(' '); await delay(400);
+      if (action === 'encounter-escape') { await tap(' '); await delay(700); }
+    } else {
+      const golem = action !== 'encounter-bear';
+      await click(golem ? 'Golem fortress' : 'Bear cave');
+      if (action === 'encounter-spanish') await click('EN / ES');
+      await tap('e');
+      for (let i = 0; i < 60; i++) {
+        if (await evaluate(`document.querySelector('#status').textContent.includes('${golem ? 'DIALOGUE' : 'FIGHT'}')`)) break;
+        await delay(200);
+      }
+      if (action === 'encounter-fight') { await tap(' '); await tap(' '); await tap(' '); await delay(3400); }
+      if (!golem) {
+        await key('d', 'keyDown'); await delay(650); await key('d', 'keyUp');
+        for (let i = 0; i < 60; i++) {
+          const visible = await evaluate('JSON.parse(document.querySelector("#status").textContent)');
+          if (visible.bearAttack === 'STOMP' && visible.attackTime > 0.65) break;
+          await delay(100);
+        }
+      }
+    }
+  }
+  if (action === 'spanish') {
+    await send('Page.reload'); await delay(1800);
+    await click('SETTINGS'); await click('ES'); await click('VOLVER AL MENÚ'); await click('JUGAR');
+    for (let i = 0; i < 7; i++) { await key(' ', 'keyDown'); await key(' ', 'keyUp'); await delay(40); }
+    await delay(800);
+  }
+  if (action === 'cutscene') {
+    await click('PLAY'); await delay(2200);
+    for (let i = 0; i < 5; i++) { await key(' ', 'keyDown'); await key(' ', 'keyUp'); await delay(40); }
+    await delay(500);
+  }
+  if (action === 'portal') {
+    for (let i = 0; i < 3; i++) { await key(' ', 'keyDown'); await key(' ', 'keyUp'); await delay(40); }
+    await delay(650);
+  }
+  if (action === 'finish-cutscene') {
+    for (let i = 0; i < 18; i++) { await key(' ', 'keyDown'); await key(' ', 'keyUp'); await delay(40); }
+    await delay(3500);
+    for (let i = 0; i < 40; i++) {
+      if (await evaluate('document.body.innerText.includes("Vinn has landed")')) break;
+      await delay(500);
+    }
+  }
   if (action === 'tutorial') { await click('PLAY'); await click('SKIP CUTSCENE'); }
   if (action === 'walk') {
     await key('d', 'keyDown'); await delay(600); await key('w', 'keyDown'); await key('w', 'keyUp');
@@ -47,7 +101,7 @@ const action = process.argv[2] || 'inspect';
     let fiber = canvas[Object.keys(canvas).find(k => k.startsWith('__reactFiber'))];
     while (fiber && fiber.type?.name !== 'App') fiber = fiber.return;
     const refs = []; let hook = fiber?.memoizedState;
-    while (hook) { const v = hook.memoizedState?.current; if (v && typeof v.x === 'number' && typeof v.health === 'number') refs.push({x:v.x,y:v.y,health:v.health,state:v.state}); hook = hook.next; }
+    while (hook) { const v = hook.memoizedState?.current; if (v && typeof v.x === 'number' && typeof v.health === 'number') refs.push({x:v.x,y:v.y,health:v.health,state:v.state}); if (v && typeof v.dialogueIndex === 'number') refs.push({phase:v.phase,index:v.dialogueIndex,clock:v.timer,line:v.currentDialogue}); hook = hook.next; }
     return { refs, buttons: [...document.querySelectorAll('button')].map(b => b.textContent.trim()), text: document.body.innerText.slice(-700) };
   })()`);
   const capture = await send('Page.captureScreenshot', { format: 'png' });

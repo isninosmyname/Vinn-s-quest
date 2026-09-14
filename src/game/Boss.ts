@@ -27,6 +27,7 @@ export class Boss {
   isEnraged: boolean = false;
   angryTransitionTimer: number = 0;
   defeatedFired: boolean = false;
+  landingReady = false;
 
   constructor(x: number, y: number, type: BossType) {
     this.x = x;
@@ -37,6 +38,7 @@ export class Boss {
   }
 
   update(dt: number, playerX: number) {
+    if (this.type === 'GOLEM' && this.health <= 0) return;
     this.animTimer += dt;
     if (this.isHit) {
       this.hitTimer += dt;
@@ -57,7 +59,7 @@ export class Boss {
             this.isInvulnerable = true;
         } else if (this.state === 'FLY_UP') {
             this.isInvulnerable = true;
-            this.y -= 15;
+            this.y -= 900 * dt;
             if (this.y < -300) {
                 this.state = 'RAINING';
                 this.attackTimer = 0;
@@ -73,10 +75,11 @@ export class Boss {
             }
         } else if (this.state === 'FALLING') {
             this.isInvulnerable = true;
-            this.y += 18;
+            this.y += 720 * dt; // Slower slam: give the player time to dodge.
             if (this.y >= 460) {
                 this.y = 460;
                 this.state = 'STUNNED';
+                this.landingReady = true;
                 this.attackTimer = 0;
             }
         } else if (this.state === 'STUNNED') {

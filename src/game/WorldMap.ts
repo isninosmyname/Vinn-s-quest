@@ -1,6 +1,7 @@
 import { FOREST_NAMES } from './ForestWorld';
 export type WorldMapLanguage = 'en' | 'es';
 
+import { FOREST_NAMES_ES } from './ForestText';
 type MapNode = { x: number; y: number; level: number };
 
 export class World1Map {
@@ -92,14 +93,14 @@ export class World1Map {
         ctx.fillStyle = '#452b58'; ctx.font = '18px "Press Start 2P"'; ctx.textAlign = 'center';
         ctx.fillText(language === 'en' ? 'WORLD 1  •  THE GREEN TRAIL' : 'MUNDO 1  •  EL SENDERO VERDE', 500, 30);
         ctx.font = '10px "Press Start 2P"';
-        ctx.fillText(FOREST_NAMES[this.selectedLevel - 1], 500, 52);
+        ctx.fillText((language === 'en' ? FOREST_NAMES : FOREST_NAMES_ES)[this.selectedLevel - 1], 500, 52);
         for (let i = 0; i < 8; i++) {
             const x = 110 + i * 98;
             ctx.fillStyle = this.selectedLevel === i + 1 ? '#f9ecac' : '#c9e69c'; ctx.fillRect(x, 68, 88, 50);
             ctx.strokeStyle = '#537457'; ctx.lineWidth = 2; ctx.strokeRect(x, 68, 88, 50);
             ctx.fillStyle = this.completed.includes(i + 1) ? '#b34754' : '#345c49'; ctx.font = '12px monospace';
             ctx.fillText('1-' + (i + 1), x + 44, 85);
-            ctx.fillText(this.completed.includes(i + 1) ? 'CLEAR' : i === 3 ? 'KEEP' : i === 7 ? 'GOLEM' : i + 1 <= this.maxUnlocked ? 'OPEN' : 'LOCKED', x + 44, 105);
+            ctx.fillText(this.completed.includes(i + 1) ? (language === 'en' ? 'CLEAR' : 'LISTO') : i === 3 ? (language === 'en' ? 'KEEP' : 'CASTILLO') : i === 7 ? 'GOLEM' : i + 1 <= this.maxUnlocked ? (language === 'en' ? 'OPEN' : 'ABIERTO') : (language === 'en' ? 'LOCKED' : 'CERRADO'), x + 44, 105);
         }
 
         // Dotted route.
@@ -145,7 +146,7 @@ export class World1Map {
         ctx.fillStyle = '#fff4a8'; ctx.strokeStyle = '#51365a'; ctx.lineWidth = 3;
         ctx.fillRect(selected.x - 30, selected.y - 63, 60, 20); ctx.strokeRect(selected.x - 30, selected.y - 63, 60, 20);
         ctx.fillStyle = '#302442'; ctx.font = '8px "Press Start 2P"';
-        ctx.fillText(selected.level === 4 ? (language === 'en' ? 'CASTLE' : 'CASTILLO') : `LEVEL ${selected.level}`, selected.x, selected.y - 49);
+        ctx.fillText(selected.level === 4 ? (language === 'en' ? 'CASTLE' : 'CASTILLO') : `${language === 'en' ? 'LEVEL' : 'NIVEL'} ${selected.level}`, selected.x, selected.y - 49);
 
         // Big pixel arrows are part of the map itself, not extra characters.
         this.drawArrow(ctx, 34, 250, -1, this.selectedLevel > 1);

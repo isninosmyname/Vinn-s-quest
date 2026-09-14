@@ -19,6 +19,10 @@ export class Enemy {
   direction = 1;
   homeX: number;
   maxHealth = 3;
+  attackKind: 'SWIPE' | 'STOMP' = 'SWIPE';
+  stompCooldown = 3.5;
+  stompReady = false;
+  private stompEmitted = false;
 
   constructor(x: number, y: number, type: EnemyType = 'REGULAR') {
     this.x = x;
@@ -71,7 +75,14 @@ export class Enemy {
     });
 
     const distX = playerX - this.x;
-    this.direction = distX > 0 ? 1 : -1;
+    if (this.state !== 'ATTACKING') this.direction = distX > 0 ? 1 : -1;
+    if (this.type === 'BEAR') {
+      this.stompCooldown -= dt;
+      if (this.stompCooldown <= 0 && Math.abs(distX) < 650 && this.onGround && this.state !== 'ATTACKING') {
+        this.attackKind = 'STOMP'; this.state = 'ATTACKING'; this.attackTimer = 0;
+        this.stompEmitted = false; this.stompCooldown = 6;
+      }
+    }
     
     if (Math.abs(distX) < 400 && this.state !== 'ATTACKING') {
       if (Math.abs(distX) > 40) {
@@ -81,6 +92,7 @@ export class Enemy {
         if (!animal || platforms.some(p => nextX > p.x + 18 && nextX < p.x + p.w - 18 && Math.abs(p.y - (this.y + 30)) < 5)) this.x = nextX;
       } else {
         this.state = 'ATTACKING';
+        this.attackKind = 'SWIPE';
         this.attackTimer = 0;
       }
     } else {
@@ -89,9 +101,13 @@ export class Enemy {
 
     if (this.state === 'ATTACKING') {
         this.attackTimer += dt;
-        if (this.attackTimer > (animal ? 1.5 : 0.6)) {
+        if (this.attackKind === 'STOMP' && this.attackTimer >= 1.15 && !this.stompEmitted) {
+          this.stompReady = true; this.stompEmitted = true;
+        }
+        if (this.attackTimer > (this.attackKind === 'STOMP' ? 2.3 : animal ? 1.5 : 0.6)) {
             this.state = 'IDLE';
             this.attackTimer = 0;
+            this.attackKind = 'SWIPE';
         }
     }
 
@@ -118,8 +134,14 @@ export class Enemy {
         ctx.fillStyle = '#ffe68a'; ctx.fillRect(-10, -20, 4, 3); ctx.fillRect(2, -20, 4, 3);
         ctx.restore(); return;
       }
-      const windup = this.state === 'ATTACKING' && this.attackTimer < 0.65;
-      const swipe = this.state === 'ATTACKING' && this.attackTimer >= 0.65 && this.attackTimer < 0.95;
+      const rearing = bear && this.state === 'ATTACKING' && this.attackKind === 'STOMP';
+      const windup = this.state === 'ATTACKING' && this.attackTimer < (rearing ? 1.15 : 0.65);
+      const swipe = !rearing && this.state === 'ATTACKING' && this.attackTimer >= 0.65 && this.attackTimer < 0.95;
+      // Pivot on the hind paws; lift both front legs, then plant them hard.
+      if (rearing) {
+        const lift = this.attackTimer < 0.9 ? this.attackTimer / 0.9 : this.attackTimer < 1.05 ? 1 : Math.max(0, 1 - (this.attackTimer - 1.05) / 0.1);
+        ctx.translate(-30, 0); ctx.rotate(-lift * 0.72); ctx.translate(30, 0);
+      }
       const step = this.state === 'WALKING' ? Math.round(Math.sin(this.animTimer * 13) * 7) : 0;
       const fur = this.isHit ? '#fff1ce' : bear ? '#80533d' : '#9bacb2';
       ctx.fillStyle = fur; ctx.fillRect(bear ? -44 : -34, bear ? -72 : -40, bear ? 78 : 60, bear ? 58 : 24);

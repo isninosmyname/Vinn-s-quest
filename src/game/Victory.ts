@@ -1,4 +1,4 @@
-export function drawVictory(ctx: CanvasRenderingContext2D, time: number, variant: number, color: string) {
+export function drawVictory(ctx: CanvasRenderingContext2D, time: number, variant: number, color: string, language: 'en' | 'es' = 'en') {
   ctx.save(); ctx.fillStyle = '#142d30'; ctx.fillRect(0, 0, 1000, 500);
   ctx.fillStyle = '#234841'; ctx.fillRect(0, 390, 1000, 110);
   ctx.fillStyle = '#719b65'; ctx.fillRect(0, 390, 1000, 6);
@@ -6,7 +6,7 @@ export function drawVictory(ctx: CanvasRenderingContext2D, time: number, variant
     ctx.fillStyle = ['#ffda78', '#f38aa1', '#83daca'][i % 3];
     ctx.fillRect((i * 137 + Math.sin(time + i) * 24) % 1000, (time * 45 + i * 31) % 385, 5, 9);
   }
-  ctx.textAlign = 'center'; ctx.fillStyle = '#ffe7a6'; ctx.font = '26px "Press Start 2P"'; ctx.fillText('LEVEL CLEAR!', 500, 90);
+  ctx.textAlign = 'center'; ctx.fillStyle = '#ffe7a6'; ctx.font = '26px "Press Start 2P"'; ctx.fillText(language === 'en' ? 'LEVEL CLEAR!' : '¡NIVEL SUPERADO!', 500, 90);
   const t = time % 3.6;
   const flip = variant === 1 && t > 1 && t < 2.2 ? (t - 1) / 1.2 : 0;
   const toss = variant === 0 && t > 0.5 && t < 2.3 ? (t - 0.5) / 1.8 : 0;
@@ -27,7 +27,7 @@ export function drawVictory(ctx: CanvasRenderingContext2D, time: number, variant
     sword(ctx, 0, 0, -0.6 + toss * Math.PI * 2); ctx.restore();
   }
   ctx.fillStyle = '#d8e8c9'; ctx.font = '12px monospace';
-  ctx.fillText(['SWORD TOSS', 'SLASH & BACKFLIP', 'READY FOR THE NEXT CHALLENGE'][variant], 500, 435);
+  ctx.fillText((language === 'en' ? ['SWORD TOSS', 'SLASH & BACKFLIP', 'READY FOR THE NEXT CHALLENGE'] : ['LANZAMIENTO DE ESPADA', 'TAJO Y MORTAL HACIA ATRÁS', 'LISTO PARA EL PRÓXIMO RETO'])[variant], 500, 435);
   ctx.restore();
 }
 

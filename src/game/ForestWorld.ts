@@ -119,11 +119,11 @@ export const FOREST_LETTERS = [
    { x: 910, text: 'Some wolves hide in bushes. Many bushes are empty. A pair of glowing eyes is your warning. Step back when the wolf prepares to attack, then strike while it rests.' },
    { x: 650, text: 'Feather crystals give you a second jump for sixty seconds. Collect another to reset the minute. Watch the timer. The lower trail remains passable after the magic fades.' }],
   [{ x: 230, text: 'The branches above the trail form a second route. Jump from the low boughs to explore the canopy. You can always return to the lower path.' }],
-  [{ x: 5910, text: 'A bear guards this cave. Watch for its warning before the claw swipe. Jump away, then strike while it rests. You must defeat it to open the way to Ironwood Keep.' }],
+  [{ x: 5910, text: 'Press E at the cave door to enter. The bear swipes its claws and sometimes raises its front paws for a stomp. Jump over the shockwave, then strike while it rests. Defeat it to open the exit.' }],
   [{ x: 5460, text: 'Duff waits beyond these halls. Duck the high pole and jump the low pole. Strike RIGHT, then LEFT. The poles will become steps. Reach his perch to hit him. Four hits will break his machine.' }],
   [{ x: 210, text: 'This river has washed away the old bridge. Use the remaining islands and the stone arches above them. The moving water below the gaps marks where the bridge has fallen.' }],
   [], [],
-  [{ x: 6180, text: 'Golem waits in the far courtyard. Avoid his falling stones. When he lands and lies stunned, strike quickly, then retreat before he rises again.' }]
+  [{ x: 6180, text: 'Press E at the fortress gate. Duff throws swords from the gallery while Golem attacks. Each landing sends two shockwaves, one in each direction. Jump over them, avoid falling stones, and strike Golem while he is stunned.' }]
 ];
 
 export function drawBush(ctx: CanvasRenderingContext2D, x: number, y: number) {
@@ -132,7 +132,7 @@ export function drawBush(ctx: CanvasRenderingContext2D, x: number, y: number) {
   ctx.fillStyle = '#73a955'; for (let i = 0; i < 6; i++) ctx.fillRect(x - 34 + i * 13, y - 20 - (i % 3) * 7, 7, 5);
 }
 
-export function drawForestWorld(ctx: CanvasRenderingContext2D, camera: number, level: number, time: number) {
+export function drawForestWorld(ctx: CanvasRenderingContext2D, camera: number, level: number, time: number, language: 'en' | 'es' = 'en') {
   const castle = level === 4;
   const skies = ['#acd6b7', '#91c7b8', '#9daea2', '#242337', '#a5d4dc', '#c9ddac', '#9babc0', '#d8cbaa'];
   ctx.fillStyle = skies[level - 1]; ctx.fillRect(0, 0, 1000, 500);
@@ -153,7 +153,7 @@ export function drawForestWorld(ctx: CanvasRenderingContext2D, camera: number, l
       ctx.fillStyle = '#ffe49a'; ctx.fillRect(x - 96, 241 - flame * 2, 10, 20 + flame * 2);
     }
     ctx.fillStyle = '#e1b273'; ctx.font = '16px monospace';
-    if (camera < 800) ctx.fillText('IRONWOOD KEEP  →  DUFF’S MACHINE ROOM', 220 - camera, 70);
+    if (camera < 800) ctx.fillText(language === 'en' ? 'IRONWOOD KEEP  →  DUFF’S MACHINE ROOM' : 'FORTALEZA  →  SALA DE MÁQUINAS DE DUFF', 220 - camera, 70);
     return;
   }
   for (let layer = 0; layer < 3; layer++) {
@@ -218,11 +218,11 @@ export function drawForestWorld(ctx: CanvasRenderingContext2D, camera: number, l
     ctx.fillRect(x + 90, 100, 960, 80); ctx.fillRect(x + 170, 60, 880, 70);
     ctx.fillStyle = '#131e20'; ctx.fillRect(x + 160, 240, 840, 220); ctx.fillRect(x + 260, 190, 740, 60);
     ctx.fillStyle = '#687368'; for (let i = 0; i < 8; i++) ctx.fillRect(x + 30 + i * 117, 180 - i % 3 * 24, 72, 32);
-    ctx.fillStyle = '#f8d88c'; ctx.font = '16px monospace'; ctx.fillText('BRIAR BEAR CAVE', x + 160, 170);
+    ctx.fillStyle = '#f8d88c'; ctx.font = '16px monospace'; ctx.fillText(language === 'en' ? 'BRIAR BEAR CAVE' : 'CUEVA DEL OSO', x + 160, 170);
   }
 }
 
-export function drawQueenPaper(ctx: CanvasRenderingContext2D, message: string) {
+export function drawQueenPaper(ctx: CanvasRenderingContext2D, message: string, language: 'en' | 'es' = 'en') {
   ctx.save(); ctx.fillStyle = 'rgba(7,17,18,.78)'; ctx.fillRect(0, 0, 1000, 500);
   ctx.fillStyle = '#8d643e'; ctx.fillRect(153, 51, 708, 405);
   ctx.fillStyle = '#f3ddb0'; ctx.fillRect(145, 43, 708, 405);
@@ -233,12 +233,12 @@ export function drawQueenPaper(ctx: CanvasRenderingContext2D, message: string) {
   ctx.fillStyle = '#ffd3cf'; ctx.fillRect(198, 88, 24, 24);
   ctx.fillStyle = '#864785'; ctx.fillRect(189, 114, 42, 30);
   ctx.fillStyle = '#ffda68'; ctx.fillRect(193, 82, 34, 8); ctx.fillRect(193, 74, 6, 12); ctx.fillRect(207, 70, 6, 16); ctx.fillRect(221, 74, 6, 12);
-  ctx.fillStyle = '#533d47'; ctx.font = 'bold 23px Georgia'; ctx.fillText('A letter from your Queen', 270, 107);
+  ctx.fillStyle = '#533d47'; ctx.font = 'bold 23px Georgia'; ctx.fillText(language === 'en' ? 'A letter from your Queen' : 'Una carta de tu Reina', 270, 107);
   ctx.font = '19px Georgia'; let line = ''; let y = 191;
   for (const word of message.split(' ')) {
     if (ctx.measureText(line + word).width > 600) { ctx.fillText(line, 195, y); line = ''; y += 28; }
     line += word + ' ';
   }
-  ctx.fillText(line, 195, y); ctx.font = 'italic 21px Georgia'; ctx.fillText('Greetings, The queen.', 540, 392);
-  ctx.font = '14px monospace'; ctx.fillText('E / ESC: close', 195, 416); ctx.restore();
+  ctx.fillText(line, 195, y); ctx.font = 'italic 21px Georgia'; ctx.fillText(language === 'en' ? 'Greetings, The queen.' : 'Saludos, La reina.', 540, 392);
+  ctx.font = '14px monospace'; ctx.fillText(language === 'en' ? 'E / ESC: close' : 'E / ESC: cerrar', 195, 416); ctx.restore();
 }

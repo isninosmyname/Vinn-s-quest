@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>Vinn encounter QA — isolated, no save data</title>
+<style>
+body { margin: 20px; background: #101722; color: #ffe5b5; font: 16px monospace; }
+button { padding: 10px; margin: 0 8px 12px 0; } canvas { display: block; border: 2px solid #899a9b; max-width: 100%; }
+</style>
+<h2>Encounter QA — no save data</h2>
+<button id="bear">Bear cave</button><button id="golem">Golem fortress</button><button id="duff">Duff final hit</button><button id="language">EN / ES</button>
+<canvas width="1000" height="500"></canvas>
+<p>A/D: move · W: jump · C: crouch · SPACE: attack/dialogue · E: enter/dialogue</p>
+<output id="status"></output>
+<script type="module">
+import { ForestEncounter } from '/src/game/ForestEncounter.ts';
+import { DuffBoss } from '/src/game/DuffBoss.ts';
+import { Vinn } from '/src/game/Vinn.ts';
+import { drawForestWorld } from '/src/game/ForestWorld.ts';
+const canvas = document.querySelector('canvas'), ctx = canvas.getContext('2d');
+const status = document.querySelector('#status');
+let room, duff, hero, keys = {}, previous = 0, language = 'en';
+function start(kind) {
+    keys = {}; duff = null;
+    room = new ForestEncounter(kind, 7200); hero = new Vinn(room.doorX - 50, 430); hero.onGround = true;
+}
+document.querySelector('#bear').onclick = () => start('BEAR');
+document.querySelector('#golem').onclick = () => start('GOLEM');
+document.querySelector('#language').onclick = () => language = language === 'en' ? 'es' : 'en';
+document.querySelector('#duff').onclick = () => {
+    room = null; duff = new DuffBoss(6200); duff.phase = 'STAIR_ASSAULT'; duff.health = 1;
+    hero = new Vinn(duff.x, duff.y); hero.onGround = true; keys = {};
+};
+window.addEventListener('keydown', e => {
+    const k = e.key.toLowerCase(); if ([' ', 'w', 'e'].includes(k)) e.preventDefault();
+    if (e.repeat) return;
+    if (room?.frozen || duff?.frozen) { if (k === ' ' || k === 'e') { room?.advanceDialogue(); duff?.advanceDialogue(); } return; }
+    if (k === 'e' && room?.canEnter([hero])) { room.enter(); keys = {}; return; }
+    if (k === 'w') hero.jump(); keys[k] = true;
+});
+window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
+window.addEventListener('blur', () => keys = {});
+start('BEAR');
+function frame(time) {
+    const dt = Math.min(0.05, (time - (previous || time)) / 1000); previous = time;
+    room?.updateScene(dt);
+    if (room?.entryReady) { room.entryReady = false; hero.x = room.start + 140; hero.y = 430; hero.vx = 0; hero.vy = 0; keys = {}; }
+    const platforms = room?.inside ? room.platforms : [{ x: 0, y: 460, w: 10000 }, ...(duff?.platforms || [])];
+    if (!room?.frozen && !duff?.frozen && hero.health > 0) hero.update(dt, keys, room?.inside && !room.cleared ? 7020 : 7160, platforms, 1, room?.inside ? 6235 : 0);
+    if (room && !room.inside) hero.x = Math.min(room.doorX + 35, hero.x);
+    if (room?.phase === 'FIGHT' && hero.health > 0) {
+        room.bear?.update(dt, hero.x, platforms); room.boss?.update(dt, hero.x);
+        const bear = room.bear, boss = room.boss;
+        if (bear && bear.state === 'ATTACKING' && bear.attackKind === 'SWIPE' && bear.attackTimer >= 0.65 && bear.attackTimer < 0.95 && Math.abs(hero.x - bear.x) < 95 && Math.abs(hero.y - bear.y) < 60) hero.takeDamage(3);
+        if (hero.state === 'ATTACKING' && hero.attackTimer < 0.1) {
+            if (bear && Math.abs(hero.x - bear.x) < 80 && Math.abs(hero.y - bear.y) < 90) bear.takeDamage();
+            if (boss?.state === 'STUNNED' && Math.abs(hero.x - boss.x) < 120) boss.takeDamage(3);
+        }
+        room.updateFight(dt, [hero]);
+    }
+    duff?.update(dt, [hero], !!keys.e);
+    const camera = room?.inside || duff ? 6200 : 5700;
+    if (room?.inside) room.drawInterior(ctx); else drawForestWorld(ctx, camera, room?.kind === 'GOLEM' ? 8 : duff ? 4 : 3, time / 1000, language);
+    room?.drawDoor(ctx, camera, language, room.canEnter([hero]));
+    duff?.draw(ctx, camera, language); hero.draw(ctx, camera);
+    if (room?.bear?.health > 0) room.bear.draw(ctx, camera);
+    if (room?.boss?.health > 0) room.boss.draw(ctx, camera);
+    room?.drawOverlay(ctx, camera, language);
+    status.textContent = JSON.stringify({ phase: room?.phase ?? duff?.phase, health: hero.health, boss: room?.boss?.health ?? room?.bear?.health ?? duff?.health, bearAttack: room?.bear?.attackKind, attackTime: room?.bear?.attackTimer, waves: room?.hazards.filter(h => h.kind === 'WAVE').length, swords: room?.hazards.filter(h => h.kind === 'SWORD').length });
+    requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</html>

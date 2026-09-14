@@ -1,7 +1,8 @@
 import type { Vinn } from './Vinn';
 import type { ForestPlatform } from './ForestWorld';
 
-export type DuffPhase = 'WAITING' | 'INTRO' | 'MOUNT' | 'POLE_RUN' | 'RETURN_LEFT' | 'POLES_STOPPED' | 'STAIR_ASSAULT' | 'THROW_BACK' | 'DEFEATED';
+import { DUFF_TEXT_ES } from './ForestText';
+export type DuffPhase = 'WAITING' | 'INTRO' | 'MOUNT' | 'POLE_RUN' | 'RETURN_LEFT' | 'POLES_STOPPED' | 'STAIR_ASSAULT' | 'THROW_BACK' | 'ESCAPE_DIALOGUE' | 'ESCAPING' | 'DEFEATED';
 export class DuffBoss {
     readonly maxHealth = 4;
     health = 4;
@@ -28,10 +29,14 @@ export class DuffBoss {
     }
     get isMachineMoving() { return this.phase === 'POLE_RUN' || this.phase === 'RETURN_LEFT'; }
     get active() { return this.phase !== 'WAITING'; }
-    get frozen() { return ['INTRO', 'MOUNT', 'THROW_BACK'].includes(this.phase); }
+    get frozen() { return ['INTRO', 'MOUNT', 'THROW_BACK', 'ESCAPE_DIALOGUE', 'ESCAPING'].includes(this.phase); }
     startBattle() { if (this.phase === 'INTRO') { this.phase = 'MOUNT'; this.timer = 0; } }
+    advanceDialogue() {
+        if (this.phase === 'INTRO') this.startBattle();
+        else if (this.phase === 'ESCAPE_DIALOGUE') { this.phase = 'ESCAPING'; this.timer = 0; }
+    }
     get poles() {
-        if (['POLES_STOPPED', 'STAIR_ASSAULT', 'THROW_BACK', 'DEFEATED'].includes(this.phase)) {
+        if (['POLES_STOPPED', 'STAIR_ASSAULT', 'THROW_BACK', 'ESCAPE_DIALOGUE', 'ESCAPING', 'DEFEATED'].includes(this.phase)) {
             const stairs = [{ x: this.machineStart + 270, y: 395, w: 240, h: 12 }, { x: this.machineStart + 550, y: 330, w: 240, h: 12 }];
             if (this.phase === 'POLES_STOPPED' && this.stoppedFrom.length) {
                 const t = Math.min(1, this.timer / 0.8); const ease = t * t * (3 - 2 * t);
@@ -48,7 +53,7 @@ export class DuffBoss {
         ];
     }
     get platforms(): ForestPlatform[] {
-        return ['STAIR_ASSAULT', 'DEFEATED'].includes(this.phase)
+        return ['STAIR_ASSAULT', 'ESCAPE_DIALOGUE', 'ESCAPING', 'DEFEATED'].includes(this.phase)
             ? [...this.poles, { x: this.machineStart + 815, y: 265, w: 150, h: 18 }] : [];
     }
     update(dt: number, players: Vinn[], interact: boolean) {
@@ -59,6 +64,11 @@ export class DuffBoss {
             return;
         }
         if (this.phase === 'INTRO') return;
+        if (this.phase === 'ESCAPE_DIALOGUE' || this.phase === 'DEFEATED') return;
+        if (this.phase === 'ESCAPING') {
+            if (this.timer >= 1.5) this.phase = 'DEFEATED';
+            return;
+        }
         if (this.phase === 'MOUNT') {
             if (this.timer > 1.4) { this.phase = 'POLE_RUN'; this.timer = 0; }
             return;
@@ -101,15 +111,20 @@ export class DuffBoss {
             if (alive.some(p => Math.abs(p.x - this.x) < 85 && Math.abs(p.y - this.y) < 65 && p.state === 'ATTACKING')) {
                 this.health--;
                 this.throwStarts = players.map(p => ({ x: p.x, y: p.y }));
-                this.phase = this.health === 0 ? 'DEFEATED' : 'THROW_BACK'; this.timer = 0;
+                this.phase = this.health === 0 ? 'ESCAPE_DIALOGUE' : 'THROW_BACK'; this.timer = 0;
             }
         }
     }
-    draw(ctx: CanvasRenderingContext2D, camera: number) {
+    draw(ctx: CanvasRenderingContext2D, camera: number, language: 'en' | 'es' = 'en') {
         if (camera + 1000 < this.machineStart) return;
         const start = this.machineStart - camera;
         ctx.save(); ctx.imageSmoothingEnabled = false;
         ctx.fillStyle = '#211c2d'; ctx.fillRect(start, 180, 1000, 280);
+        // Duff's escape route is a real open window above the machine.
+        ctx.fillStyle = '#87848c'; ctx.fillRect(start + 905, 65, 90, 160);
+        ctx.fillStyle = '#8bc7db'; ctx.fillRect(start + 915, 75, 70, 140);
+        ctx.fillStyle = '#e5e9c7'; ctx.fillRect(start + 935, 100, 50, 12);
+        ctx.fillStyle = '#b0a999'; ctx.fillRect(start + 900, 219, 100, 9);
         ctx.fillStyle = '#564c55'; ctx.fillRect(start + 840, 240, 120, 220);
         ctx.fillStyle = '#a5a79a'; ctx.fillRect(start + 815, 265, 150, 16);
         for (let i = 0; i < 3; i++) {
@@ -132,16 +147,21 @@ export class DuffBoss {
             ctx.fillStyle = '#c5d3ce'; ctx.fillRect(pole.x - camera, pole.y - 2, 8, 16); ctx.fillRect(pole.x - camera + pole.w - 8, pole.y - 2, 8, 16);
         }
         for (const [x, label, lit] of [
-            [this.rightButtonX, '1 RIGHT', this.phase !== 'POLE_RUN' && this.phase !== 'WAITING' && this.phase !== 'INTRO' && this.phase !== 'MOUNT'],
-            [this.leftButtonX, '2 LEFT', ['POLES_STOPPED', 'STAIR_ASSAULT', 'DEFEATED'].includes(this.phase)]
+            [this.rightButtonX, language === 'en' ? '1 RIGHT' : '1 DERECHA', this.phase !== 'POLE_RUN' && this.phase !== 'WAITING' && this.phase !== 'INTRO' && this.phase !== 'MOUNT'],
+            [this.leftButtonX, language === 'en' ? '2 LEFT' : '2 IZQUIERDA', ['POLES_STOPPED', 'STAIR_ASSAULT', 'DEFEATED'].includes(this.phase)]
         ] as const) {
             ctx.fillStyle = '#68706b'; ctx.fillRect(x - camera - 20, 401, 40, 59);
             ctx.fillStyle = lit ? '#91e886' : '#ef754d'; ctx.fillRect(x - camera - 16, 397, 32, 15);
             ctx.fillStyle = '#ffedbc'; ctx.font = '12px monospace'; ctx.textAlign = 'center'; ctx.fillText(label, x - camera, 388);
         }
+        if (this.phase !== 'DEFEATED') {
         let feet = this.phase === 'INTRO' || this.phase === 'WAITING' ? 460 : 265;
         if (this.phase === 'MOUNT') { const t = Math.min(1, this.timer / 1.4); feet = 460 - 195 * t - Math.sin(t * Math.PI) * 100; }
-        const x = this.x - camera;
+        let x = this.x - camera;
+        if (this.phase === 'ESCAPING') {
+            const p = Math.min(1, this.timer / 1.5);
+            x += p * 200; feet = 265 - p * 110 - Math.sin(p * Math.PI) * 105;
+        }
         const crank = this.isMachineMoving || this.phase === 'STAIR_ASSAULT' ? Math.sin(this.animTimer * 10) * 8 : 0;
         ctx.fillStyle = '#9d3e45'; ctx.fillRect(x - 7, feet - 55, 14, 35);
         ctx.fillStyle = '#e7675c'; ctx.fillRect(x - 18, feet - 88, 36, 29);
@@ -151,11 +171,14 @@ export class DuffBoss {
         ctx.fillStyle = '#dda369'; ctx.fillRect(x - 19, feet - 54, 38, 8);
         ctx.fillStyle = '#e7675c'; ctx.fillRect(x - 17, feet - 20, 10, 20); ctx.fillRect(x + 7, feet - 20, 10, 20);
         ctx.fillRect(x - 32, feet - 53 + crank, 26, 7); ctx.fillRect(x + 6, feet - 53 - crank, 26, 7);
+        }
         if (this.active) {
             ctx.fillStyle = '#192328'; ctx.fillRect(270, 14, 460, 26);
             ctx.fillStyle = '#ed7762'; ctx.fillRect(274, 18, 452 * this.health / 4, 18);
             ctx.fillStyle = '#ffe9bb'; ctx.font = '14px monospace'; ctx.textAlign = 'center'; ctx.fillText('DUFF • ' + this.health + '/4', 500, 57);
             const message = this.phase === 'INTRO' ? 'Well the golem sent me to crush you first, be prepared!' :
+                this.phase === 'ESCAPE_DIALOGUE' ? 'I need.. to tell.. the golem.. about.. this...' :
+                this.phase === 'ESCAPING' ? 'Duff escapes through the window!' :
                 this.phase === 'MOUNT' ? 'Duff is climbing into his machine…' :
                 this.phase === 'POLE_RUN' ? 'C: duck • W: jump • E / SPACE: press RIGHT switch →' :
                 this.phase === 'RETURN_LEFT' ? '← Return to the LEFT switch • E / SPACE' :
@@ -163,8 +186,8 @@ export class DuffBoss {
                 this.phase === 'THROW_BACK' ? 'Duff throws you back — the next round is faster!' :
                 this.phase === 'DEFEATED' ? 'Machine destroyed! The exit is open →' : 'The machine has stopped…';
             ctx.fillStyle = '#17232b'; ctx.fillRect(70,  70, 860, 48);
-            ctx.fillStyle = '#ffe9bb'; ctx.font = '16px monospace'; ctx.fillText(message, 500, 99);
-            if (this.phase === 'INTRO') ctx.fillText('SPACE / E: continue', 500, 140);
+            ctx.fillStyle = '#ffe9bb'; ctx.font = '16px monospace'; ctx.fillText(language === 'en' ? message : DUFF_TEXT_ES[this.phase] ?? '', 500, 99);
+            if (this.phase === 'INTRO' || this.phase === 'ESCAPE_DIALOGUE') ctx.fillText(language === 'en' ? 'SPACE / E: continue' : 'ESPACIO / E: continuar', 500, 140);
         }
         ctx.restore();
     }

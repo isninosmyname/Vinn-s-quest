@@ -44,8 +44,8 @@ export class Vinn {
   shoulderWidth = 20;
   hipWidth = 15;
 
-  health: number = 20;
-  maxHealth: number = 20;
+  maxHealth: number = 26;
+  health: number = this.maxHealth;
   isHit: boolean = false;
   hitTimer: number = 0;
   color: string = '#00f2ff';

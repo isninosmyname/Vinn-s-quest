@@ -1,6 +1,12 @@
+import { DialogueTimeline } from './DialogueTimeline';
+import { endingCheckpoints } from './SceneCheckpoints';
+
 export type EndingPhase = 'REUNION' | 'PORTAL_EXIT' | 'CASTLE_ARRIVAL' | 'THE_REWARD' | 'THE_KISS' | 'QUEEN_EXIT' | 'VINN_STUNNED' | 'BANQUET_CALL' | 'FOLLOW_QUEEN' | 'BUT_SCREEN' | 'BOSS_REGEN' | 'BOSS_FUSION' | 'FIN_BAIT';
 
 export class EndingCutscene {
+    motionActive = false;
+    phaseTime = 0;
+    private timeline?: DialogueTimeline<EndingCutscene>;
     vinnX: number = 200;
     vinnY: number = 420;
     queenX: number = 400;
@@ -89,88 +95,21 @@ export class EndingCutscene {
         } else {
             this.dialogues = lang === 'en' ? this.dialogues_en : this.dialogues_es;
         }
+        if (lang === 'es') this.dialogues = this.dialogues.map(line => ({ ...line, speaker: line.speaker === 'Queen' ? 'Reina' : line.speaker }));
     }
 
     update(dt: number): boolean | { speaker: string, text: string } | null {
-        this.timer += dt;
-        
-        switch (this.phase) {
-            case 'REUNION':
-                if (this.dialogueIndex > 4) { this.phase = 'PORTAL_EXIT'; this.timer = 0; }
-                break;
-            case 'PORTAL_EXIT':
-                this.portalSize += (200 - this.portalSize) * 0.05;
-                this.portalAngle += 0.2;
-                this.vinnX += (400 - this.vinnX) * 0.05;
-                this.queenX += (400 - this.queenX) * 0.05;
-                if (this.timer > 2) {
-                    this.phase = 'CASTLE_ARRIVAL';
-                    this.timer = 0;
-                    this.dialogueIndex = 5;
-                    this.vinnX = 400;
-                    this.queenX = 500;
-                }
-                break;
-            case 'CASTLE_ARRIVAL':
-                if (this.dialogueIndex === 8) { this.phase = 'THE_REWARD'; this.timer = 0; }
-                break;
-            case 'THE_REWARD':
-                this.isBowing = true;
-                if (this.timer > 2) {
-                    this.phase = 'THE_KISS';
-                    this.timer = 0;
-                    this.hearts = [{ x: 450, y: 380, life: 1 }];
-                }
-                break;
-            case 'THE_KISS':
-                if (this.queenX > 450) this.queenX -= 2;
-                this.hearts.forEach(h => { h.y -= 1.5; h.life -= 0.01; });
-                if (this.timer > 1.5) { this.phase = 'QUEEN_EXIT'; this.timer = 0; this.isBowing = false; }
-                break;
-            case 'QUEEN_EXIT':
-                this.queenX += 4;
-                if (this.queenX > 1100) { this.phase = 'VINN_STUNNED'; this.timer = 0; this.vinnStunned = true; }
-                break;
-            case 'VINN_STUNNED':
-                if (this.timer > 2) { this.phase = 'BANQUET_CALL'; this.timer = 0; this.dialogueIndex = 9; }
-                break;
-            case 'BANQUET_CALL':
-                if (this.timer > 3) { this.phase = 'FOLLOW_QUEEN'; this.timer = 0; this.vinnStunned = false; }
-                break;
-            case 'FOLLOW_QUEEN':
-                this.vinnX += 6;
-                if (this.vinnX > 1100) { this.phase = 'BUT_SCREEN'; this.timer = 0; }
-                break;
-            case 'BUT_SCREEN':
-                if (this.timer > 3) { this.phase = 'BOSS_REGEN'; this.timer = 0; }
-                break;
-            case 'BOSS_REGEN':
-                if (this.timer > 5) { this.phase = 'BOSS_FUSION'; this.timer = 0; }
-                break;
-            case 'BOSS_FUSION':
-                if (this.timer > 5) { this.phase = 'FIN_BAIT'; this.timer = 0; }
-                break;
-            case 'FIN_BAIT':
-                if (this.timer > 5) return true;
-                break;
-        }
-
-        this.currentDialogue = null;
-        if (this.dialogueIndex < this.dialogues.length) {
-             if (['THE_KISS', 'QUEEN_EXIT', 'VINN_STUNNED', 'FOLLOW_QUEEN', 'BUT_SCREEN', 'BOSS_REGEN', 'BOSS_FUSION', 'FIN_BAIT'].includes(this.phase)) return null;
-             this.currentDialogue = this.dialogues[this.dialogueIndex];
-             return this.currentDialogue;
-        }
-        return null;
+        this.timeline ??= endingCheckpoints();
+        const finished = this.timeline.update(this, dt);
+        this.portalAngle = this.timer * 5;
+        if (['THE_KISS', 'QUEEN_EXIT', 'VINN_STUNNED'].includes(this.phase)) this.currentDialogue = null;
+        return finished || this.currentDialogue;
     }
 
     advanceDialogue() {
-        if (['REUNION', 'CASTLE_ARRIVAL', 'BANQUET_CALL'].includes(this.phase)) {
-            if (this.dialogueIndex < this.dialogues.length) {
-                this.dialogueIndex++;
-                this.timer = 0;
-            }
-        }
+        this.timeline ??= endingCheckpoints();
+        this.timeline.advance(this);
+        this.update(0);
     }
 
     draw(ctx: CanvasRenderingContext2D) {
@@ -254,7 +193,7 @@ export class EndingCutscene {
                 ctx.fillStyle = '#00ffff'; ctx.beginPath(); ctx.arc(Math.random()*800, Math.random()*500, 2, 0, Math.PI*2); ctx.fill();
             }
         } else if (this.phase === 'BOSS_FUSION') {
-            const progress = Math.min(1, this.timer / 4);
+            const progress = Math.min(1, this.phaseTime / 4);
             const fusionX = 400;
             const fusionY = 300;
             this.drawFragment(ctx, 200 + (fusionX-200)*progress, 300, 'GOLEM', 0, 1-progress);
@@ -269,7 +208,7 @@ export class EndingCutscene {
              ctx.fillStyle = '#fff'; ctx.font = '20px "Press Start 2P"'; ctx.textAlign = 'center';
              ctx.fillText("VINN'S QUEST 2", 500, 100);
              ctx.fillStyle = '#ff2d55'; ctx.font = '14px "Press Start 2P"';
-             ctx.fillText("TO BE CONTINUED...", 500, 450);
+             ctx.fillText(this.language === 'en' ? 'TO BE CONTINUED...' : 'CONTINUARÁ...', 500, 450);
         }
     }
 
@@ -303,6 +242,7 @@ export class EndingCutscene {
     }
 
     drawQueen(ctx: CanvasRenderingContext2D, x: number, y: number) {
+        y -= 25;
         ctx.save(); ctx.strokeStyle = '#ff69b4'; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(x, y - 50, 12, 0, Math.PI * 2); ctx.stroke();
         ctx.fillStyle = '#ffd700'; ctx.beginPath(); ctx.moveTo(x-10, y-62); ctx.lineTo(x-15, y-75); ctx.lineTo(x, y-80); ctx.lineTo(x+15,y-75); ctx.lineTo(x+10,y-62); ctx.fill();
         ctx.beginPath(); ctx.moveTo(x, y-38); ctx.lineTo(x, y); ctx.stroke();
@@ -310,6 +250,7 @@ export class EndingCutscene {
     }
 
     drawHero(ctx: CanvasRenderingContext2D, x: number, y: number, color: string, visual: 'NORMAL' | 'SPIKY') {
+        y -= 30;
         ctx.save(); ctx.strokeStyle = color; ctx.lineWidth = 4; ctx.shadowBlur = 10; ctx.shadowColor = color;
         if (this.isBowing) { ctx.translate(x, y); ctx.rotate(0.4); ctx.translate(-x, -y); }
         
@@ -320,7 +261,10 @@ export class EndingCutscene {
         }
 
         ctx.beginPath(); ctx.moveTo(x, y - 38); ctx.lineTo(x, y); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x-10, y+30); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x+10, y+30); ctx.stroke(); ctx.restore();
+        const stride = this.motionActive && ['REUNION', 'PORTAL_EXIT', 'FOLLOW_QUEEN'].includes(this.phase) ? Math.sin(this.timer * 12) * 16 : 10;
+        ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x-stride, y+30); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x+stride, y+30); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(x, y-25); ctx.lineTo(x-18, y-8 + stride * 0.3);
+        ctx.moveTo(x, y-25); ctx.lineTo(x+18, y-8 - stride * 0.3); ctx.stroke(); ctx.restore();
     }
 }

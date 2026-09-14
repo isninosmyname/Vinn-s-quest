@@ -1,6 +1,12 @@
+import { DialogueTimeline } from './DialogueTimeline';
+import { introCheckpoints, world1Checkpoints, world2Checkpoints, world3Checkpoints, escapeCheckpoints } from './SceneCheckpoints';
+
 export type CutscenePhase = 'WALK_IN' | 'KNEEL_AND_TALK' | 'STAIRCASE_CLIMB' | 'BALCONY_WALK' | 'BALCONY_TALK' | 'PORTAL_OPENS' | 'QUEEN_SUCKED_IN' | 'VINN_GRABS_BRICK' | 'VINN_JUMPS' | 'FOREST_DROP' | 'TECH_KIDNAP' | 'VINN_LANDING' | 'FOLLOW_TRAIL' | 'LATER_SCREEN' | 'CASTLE_APPROACH' | 'BOSS_LAB_INTRO' | 'BOSS_LAB_TALK' | 'GOLEM_LEAVE' | 'COLOSSUS_LEAVE' | 'FINISHED';
 
 export class IntroCutscene {
+    motionActive = false;
+    phaseTime = 0;
+    private timeline?: DialogueTimeline<IntroCutscene>;
     vinnX: number = -50;
     vinnY: number = 420;
     queenX: number = 600;
@@ -45,6 +51,11 @@ export class IntroCutscene {
         this.queenX = 650;
         this.queenY = 420;
         this.phase = 'WALK_IN';
+        this.timeline = undefined;
+        this.phaseTime = 0;
+        this.boss1X = 850;
+        this.boss2X = 150;
+        this.colossusY = 550;
         this.timer = 0;
         this.dialogueIndex = 0;
         this.portalSize = 0;
@@ -193,6 +204,7 @@ export class IntroCutscene {
         } else {
             this.dialogues = lang === 'en' ? this.dialogues_en : this.dialogues_es;
         }
+        if (lang === 'es') this.dialogues = this.dialogues.map(line => ({ ...line, speaker: line.speaker === 'Queen' ? 'Reina' : line.speaker }));
     }
 
     findDialogueIndex(...fragments: string[]) {
@@ -204,191 +216,25 @@ export class IntroCutscene {
     }
 
     update(dt: number): boolean | { speaker: string, text: string } | null {
-        this.timer += dt;
-
-        // These markers keep the choreography tied to the actual lines, so
-        // adding a line in English or Spanish cannot make the story skip a
-        // whole scene again.
-        const indexOrEnd = (index: number) => index >= 0 ? index : this.dialogues.length;
-        const balconyIndex = indexOrEnd(this.findDialogueIndex('balcony', 'balcón'));
-        const noiseIndex = indexOrEnd(this.findDialogueIndex('what is that noise', 'qué es ese ruido'));
-        const portalIndex = indexOrEnd(this.findDialogueIndex('a portal', 'un portal'));
-        const helpIndex = indexOrEnd(this.findDialogueIndex('help me', 'ayúdame', 'ayudenme'));
-        const noIndex = indexOrEnd(this.findDialogueIndex('no!!', '¡¡no'));
-        const ouchIndex = indexOrEnd(this.findDialogueIndex('ouch', '¿dónde estamos', 'dónde estamos'));
-        const securedIndex = indexOrEnd(this.findDialogueIndex('target secured', 'objetivo asegurado'));
-        const letGoIndex = indexOrEnd(this.findDialogueIndex('let me go', 'suéltenme'));
-        const headIndex = indexOrEnd(this.findDialogueIndex('my head', 'mi cabeza'));
-        const trailIndex = indexOrEnd(this.findDialogueIndex('dust trail', 'their trail', 'rastro de polvo', 'su rastro'));
-        const followIndex = indexOrEnd(this.findDialogueIndex('must follow', 'debo seguir', 'debemos seguir'));
-        const laterIndex = indexOrEnd(this.findDialogueIndex('later...', 'luego...'));
-        const firstCastleIndex = this.findDialogueIndex('ink colossus', 'coloso de tinta');
-        const golemOrderIndex = indexOrEnd(this.findDialogueIndex('golem!'));
-
-        switch (this.phase) {
-            case 'WALK_IN':
-                if (this.vinnX < 300) this.vinnX += dt * 180;
-                else { this.phase = 'KNEEL_AND_TALK'; this.timer = 0; }
-                break;
-            case 'KNEEL_AND_TALK':
-                if (this.dialogueIndex >= balconyIndex) {
-                    this.phase = 'STAIRCASE_CLIMB'; this.timer = 0; this.stairProgress = 0;
-                }
-                break;
-            case 'STAIRCASE_CLIMB': {
-                this.stairProgress = Math.min(1, this.timer / 2.4);
-                const step = this.stairProgress;
-                // Vinn follows a few paces behind while the Queen climbs to
-                // the open-air balcony above the hall.
-                this.queenX = 650 + step * 150;
-                this.queenY = 420 - step * 100;
-                this.vinnX = 300 + step * 300;
-                this.vinnY = 420 - step * 100;
-                if (this.timer > 2.4) {
-                    this.phase = 'BALCONY_WALK'; this.timer = 0;
-                    // The Queen answers once they reach the top. The line is
-                    // staged here so walking never depends on a key press.
-                    this.dialogueIndex = Math.max(balconyIndex + 1, this.dialogueIndex);
-                }
-                break;
-            }
-            case 'BALCONY_WALK':
-                this.queenX += (735 - this.queenX) * Math.min(1, dt * 4);
-                this.queenY += (this.balconyFloorY - this.queenY) * Math.min(1, dt * 4);
-                this.vinnX += (620 - this.vinnX) * Math.min(1, dt * 4);
-                this.vinnY += (this.balconyFloorY - this.vinnY) * Math.min(1, dt * 4);
-                if (this.timer > 1.3) { this.phase = 'BALCONY_TALK'; this.timer = 0; }
-                break;
-            case 'BALCONY_TALK':
-                // Let the Queen finish the balcony request, then show the
-                // daytime "Ahh" and the warning before opening the portal.
-                if (this.dialogueIndex > noiseIndex) { this.phase = 'PORTAL_OPENS'; this.timer = 0; }
-                break;
-            case 'PORTAL_OPENS':
-                this.portalSize = Math.min(145, this.portalSize + dt * 90);
-                this.portalAngle += dt * 3;
-                if (this.dialogueIndex === portalIndex && this.timer > 1.2) this.advanceDialogue(true);
-                if (this.dialogueIndex >= helpIndex || this.timer > 5) { this.phase = 'QUEEN_SUCKED_IN'; this.timer = 0; }
-                break;
-            case 'QUEEN_SUCKED_IN':
-                this.portalSize = Math.min(160, this.portalSize + dt * 35);
-                this.portalAngle += dt * 8;
-                this.queenX += (this.portalX - this.queenX) * Math.min(1, dt * 2.5);
-                this.queenY += (this.portalY - this.queenY) * Math.min(1, dt * 2.5);
-                if (this.dialogueIndex === helpIndex && this.timer > 1.4) this.advanceDialogue(true);
-                if (this.dialogueIndex >= noIndex && this.timer > 1.0) {
-                    this.phase = 'VINN_GRABS_BRICK'; this.timer = 0;
-                }
-                break;
-            case 'VINN_GRABS_BRICK':
-                this.vinnX += (this.balconyBrickX - this.vinnX) * Math.min(1, dt * 4);
-                this.vinnY = this.balconyFloorY - Math.sin(this.timer * 8) * Math.min(12, this.timer * 8);
-                if (this.dialogueIndex >= ouchIndex || this.timer > 2.4) { this.phase = 'VINN_JUMPS'; this.timer = 0; }
-                break;
-            case 'VINN_JUMPS':
-                this.portalAngle += dt * 10;
-                const jumpProgress = Math.min(1, this.timer / 1.5);
-                this.vinnX = this.balconyBrickX + (this.portalX - this.balconyBrickX) * jumpProgress;
-                this.vinnY = this.balconyFloorY - Math.sin(jumpProgress * Math.PI) * 170;
-                if (this.timer > 1.5) {
-                    this.phase = 'FOREST_DROP'; this.timer = 0; this.dialogueIndex = Math.max(ouchIndex, this.dialogueIndex);
-                    this.vinnX = 300; this.vinnY = -120; this.vinnVy = 30;
-                    this.queenX = 430; this.queenY = -180; this.queenVy = 10;
-                }
-                break;
-            case 'FOREST_DROP':
-                this.vinnVy += 520 * dt;
-                this.queenVy += 520 * dt;
-                this.vinnY += this.vinnVy * dt;
-                this.queenY += this.queenVy * dt;
-                if (this.vinnY >= 420) { this.vinnY = 420; this.vinnVy = 0; }
-                if (this.queenY >= 420) { this.queenY = 420; this.queenVy = 0; }
-                if ((this.vinnY === 420 && this.queenY === 420 && this.timer > 1.0) || this.dialogueIndex >= securedIndex) {
-                    this.phase = 'TECH_KIDNAP'; this.timer = 0; this.dialogueIndex = Math.max(securedIndex, this.dialogueIndex);
-                    this.skeletonLeftX = 120; this.skeletonRightX = 760;
-                }
-                break;
-            case 'TECH_KIDNAP':
-                this.skeletonLeftX += (this.queenX - 30 - this.skeletonLeftX) * Math.min(1, dt * 3);
-                this.skeletonRightX += (this.queenX + 30 - this.skeletonRightX) * Math.min(1, dt * 3);
-                if (this.timer > 1.7 && this.dialogueIndex === securedIndex) this.advanceDialogue(true);
-                if (this.dialogueIndex >= letGoIndex) {
-                    this.queenX += dt * 150;
-                    this.skeletonLeftX = this.queenX - 30;
-                    this.skeletonRightX = this.queenX + 30;
-                    if (this.queenX > 1060) { this.phase = 'VINN_LANDING'; this.timer = 0; this.dialogueIndex = headIndex; }
-                }
-                break;
-            case 'VINN_LANDING':
-                if (this.timer > 1.5 && this.dialogueIndex === headIndex) this.advanceDialogue(true);
-                if (this.dialogueIndex >= trailIndex) {
-                    this.phase = 'FOLLOW_TRAIL'; this.timer = 0; this.trailProgress = 0;
-                }
-                break;
-            case 'FOLLOW_TRAIL':
-                this.trailProgress = Math.min(520, this.trailProgress + dt * 110);
-                this.vinnX = 300 + Math.min(420, this.trailProgress);
-                if (this.dialogueIndex === trailIndex && this.timer > 2.2) this.advanceDialogue(true);
-                if (this.dialogueIndex >= followIndex && this.timer > 2.8) {
-                    this.phase = 'LATER_SCREEN'; this.timer = 0; this.dialogueIndex = laterIndex;
-                }
-                break;
-            case 'LATER_SCREEN':
-                if (this.timer > 2.5) {
-                    this.phase = 'CASTLE_APPROACH'; this.timer = 0; this.dialogueIndex = laterIndex;
-                }
-                break;
-            case 'CASTLE_APPROACH':
-                this.castleReveal = Math.min(1, this.castleReveal + dt * 0.45);
-                if (this.timer > 2.2) {
-                    this.phase = 'BOSS_LAB_INTRO'; this.timer = 0;
-                    this.dialogueIndex = firstCastleIndex >= 0 ? firstCastleIndex : this.dialogues.length;
-                    this.queenX = 500; this.queenY = 420; this.colossusY = 550;
-                }
-                break;
-            case 'BOSS_LAB_INTRO':
-                this.colossusY += (350 - this.colossusY) * Math.min(1, dt * 2.5);
-                if (this.timer > 2) { this.phase = 'BOSS_LAB_TALK'; this.timer = 0; }
-                break;
-            case 'BOSS_LAB_TALK':
-                if (this.dialogueIndex >= golemOrderIndex) { this.phase = 'GOLEM_LEAVE'; this.timer = 0; }
-                break;
-            case 'GOLEM_LEAVE':
-                this.boss1X += dt * 180;
-                if (this.dialogueIndex >= this.dialogues.length - 1) { this.phase = 'COLOSSUS_LEAVE'; this.timer = 0; }
-                break;
-            case 'COLOSSUS_LEAVE':
-                this.colossusY += dt * 90;
-                this.queenY += dt * 20;
-                break;
-        }
-
-        if (this.dialogueIndex >= this.dialogues.length) this.phase = 'FINISHED';
-        if (this.phase === 'FINISHED') return true;
-
-        this.currentDialogue = null;
-        if (this.dialogueIndex < this.dialogues.length) {
-            const currentD = this.dialogues[this.dialogueIndex];
-            this.currentDialogue = currentD;
-            if (this.phase === 'LATER_SCREEN' || this.phase === 'CASTLE_APPROACH') this.currentDialogue = null;
-            return currentD;
-        }
-        return null;
+        this.timeline ??= introCheckpoints(this);
+        const finished = this.timeline.update(this, dt);
+        this.portalAngle = this.timer * 5;
+        if (['LATER_SCREEN', 'CASTLE_APPROACH'].includes(this.phase)) this.currentDialogue = null;
+        if (finished) this.phase = 'FINISHED';
+        return finished || this.currentDialogue;
     }
 
-    advanceDialogue(force = false) {
-        if (!force && ['WALK_IN', 'STAIRCASE_CLIMB', 'BALCONY_WALK', 'FOLLOW_TRAIL', 'BOSS_LAB_INTRO'].includes(this.phase)) return;
-        if (this.dialogueIndex < this.dialogues.length) {
-            this.dialogueIndex++;
-            this.timer = 0;
-        }
+    advanceDialogue() {
+        this.timeline ??= introCheckpoints(this);
+        this.timeline.advance(this);
+        this.update(0);
     }
 
     draw(ctx: CanvasRenderingContext2D) {
         ctx.save();
         ctx.imageSmoothingEnabled = false;
         if (this.phase === 'LATER_SCREEN') {
-            const fade = Math.min(1, this.timer / 0.8);
+            const fade = Math.min(1, this.phaseTime / 0.8);
             ctx.fillStyle = '#020108'; ctx.fillRect(0, 0, 2000, 500);
             ctx.globalAlpha = fade;
             ctx.fillStyle = '#ffcc66'; ctx.font = '30px "Press Start 2P"'; ctx.textAlign = 'center';
@@ -409,7 +255,7 @@ export class IntroCutscene {
             this.drawGolem(ctx, this.boss1X, 420);
             this.drawBlazeKing(ctx, this.boss2X, 420);
             this.drawInkColossus(ctx, this.colossusX, this.colossusY);
-            if (this.phase !== 'COLOSSUS_LEAVE' || this.timer < 3) this.drawQueen(ctx, this.queenX, this.queenY);
+            if (this.phase !== 'COLOSSUS_LEAVE' || this.phaseTime < 3) this.drawQueen(ctx, this.queenX, this.queenY);
         } else if (isCastleApproach) {
             this.drawCastleApproach(ctx);
         } else if (!isForest) {
@@ -421,7 +267,7 @@ export class IntroCutscene {
         if (!isLab && !isCastleApproach) {
             if (this.phase !== 'FINISHED') this.drawQueen(ctx, this.queenX, this.queenY);
             if (this.phase !== 'FINISHED') {
-                const isUnconscious = this.phase === 'TECH_KIDNAP' || (this.phase === 'VINN_LANDING' && this.timer < 1.5);
+                const isUnconscious = this.phase === 'TECH_KIDNAP' || (this.phase === 'VINN_LANDING' && this.dialogueIndex === 13 + (this.isTwoPlayer ? 1 : 0) && this.phaseTime < 1.2);
                 if (isUnconscious) this.drawUnconsciousHero(ctx, this.vinnX, this.vinnY, this.p1Color);
                 else this.drawHero(ctx, this.vinnX, this.vinnY, this.p1Color, 'NORMAL');
                 if (this.isTwoPlayer) {
@@ -431,15 +277,18 @@ export class IntroCutscene {
             }
         }
         if (this.phase === 'TECH_KIDNAP') {
-            this.drawTechSkeleton(ctx, this.skeletonLeftX, 420, true);
-            this.drawTechSkeleton(ctx, this.skeletonRightX, 420, true);
+            this.drawTechSkeleton(ctx, this.skeletonLeftX, 390, this.motionActive);
+            this.drawTechSkeleton(ctx, this.skeletonRightX, 390, this.motionActive);
             this.drawDustTrail(ctx, this.queenX - 80, 430, 1);
         }
         if (this.currentDialogue) {
+            ctx.save();
+            // Keep the sky rift and the Queen's flight visible above the text.
+            if (['PORTAL_OPENS', 'QUEEN_SUCKED_IN', 'VINN_GRABS_BRICK', 'VINN_JUMPS'].includes(this.phase)) ctx.translate(0, 310);
             const boxW = 800; const boxX = (1000 - boxW) / 2;
             ctx.fillStyle = 'rgba(0, 0, 0, 0.8)'; ctx.fillRect(boxX, 30, boxW, 100);
             ctx.strokeStyle = '#fff'; ctx.lineWidth = 4; ctx.strokeRect(boxX, 30, boxW, 100);
-            ctx.fillStyle = this.currentDialogue.speaker === 'Vinn' ? '#00f2ff' : (this.currentDialogue.speaker === 'Queen' ? '#ff69b4' : '#ff3333');
+            ctx.fillStyle = this.currentDialogue.speaker === 'Vinn' ? '#00f2ff' : (['Queen', 'Reina'].includes(this.currentDialogue.speaker) ? '#ff69b4' : '#ff3333');
             ctx.font = '16px "Press Start 2P"'; ctx.textBaseline = 'top'; ctx.fillText(this.currentDialogue.speaker + ':', boxX + 20, 50);
             ctx.fillStyle = '#fff'; ctx.font = '12px "Press Start 2P"';
             const words = this.currentDialogue.text.split(' ');
@@ -451,8 +300,9 @@ export class IntroCutscene {
             }
             ctx.fillText(line, boxX + 20, lineY);
             if (this.timer > 0.5 && !['PORTAL_OPENS', 'QUEEN_SUCKED_IN', 'VINN_JUMPS', 'FOREST_DROP', 'STAIRCASE_CLIMB', 'BALCONY_WALK', 'BOSS_LAB_INTRO'].includes(this.phase)) {
-                ctx.fillStyle = '#ffcc00'; ctx.font = '10px "Press Start 2P"'; ctx.textAlign = 'right'; ctx.fillText('[SPACE] to continue', boxX + 780, 110); ctx.textAlign = 'left';
+                ctx.fillStyle = '#ffcc00'; ctx.font = '10px "Press Start 2P"'; ctx.textAlign = 'right'; ctx.fillText(this.language === 'en' ? '[SPACE] to continue' : '[ESPACIO] continuar', boxX + 780, 110); ctx.textAlign = 'left';
             }
+            ctx.restore();
         }
         ctx.restore();
     }
@@ -745,7 +595,7 @@ export class IntroCutscene {
 
     drawUnconsciousHero(ctx: CanvasRenderingContext2D, x: number, y: number, color: string) {
         ctx.save();
-        ctx.translate(x, y + 22);
+        ctx.translate(x, y - 12);
         ctx.rotate(-0.08);
         ctx.strokeStyle = color; ctx.lineWidth = 4; ctx.lineCap = 'round'; ctx.shadowColor = color; ctx.shadowBlur = 12;
         ctx.beginPath(); ctx.arc(30, -4, 12, 0, Math.PI * 2); ctx.stroke();
@@ -759,9 +609,10 @@ export class IntroCutscene {
     }
 
     drawQueen(ctx: CanvasRenderingContext2D, x: number, y: number) {
+        y -= 25; // Scene positions are feet, not the bottom of the torso.
         ctx.save(); ctx.strokeStyle = '#ff69b4'; ctx.lineWidth = 4; ctx.lineCap = 'round'; ctx.shadowBlur = 10; ctx.shadowColor = '#ff69b4';
-        const sittingY = (this.phase === 'WALK_IN' || this.phase === 'KNEEL_AND_TALK' || this.phase === 'PORTAL_OPENS') ? y + 10 : y;
-        const isWalking = this.phase === 'STAIRCASE_CLIMB' || this.phase === 'BALCONY_WALK';
+        const sittingY = (this.phase === 'WALK_IN' || this.phase === 'KNEEL_AND_TALK') ? y + 10 : y;
+        const isWalking = this.motionActive && (this.phase === 'STAIRCASE_CLIMB' || this.phase === 'BALCONY_WALK');
         const step = isWalking ? Math.sin(this.timer * 12) * 6 : 0;
         ctx.beginPath(); ctx.arc(x, sittingY - 50, 12, 0, Math.PI * 2); ctx.stroke();
         ctx.fillStyle = '#ffd700'; ctx.beginPath(); ctx.moveTo(x - 10, sittingY - 62); ctx.lineTo(x - 15, sittingY - 75); ctx.lineTo(x - 5, sittingY - 65); ctx.lineTo(x, sittingY - 80); ctx.lineTo(x + 5, sittingY - 65); ctx.lineTo(x + 15, sittingY - 75); ctx.lineTo(x + 10, sittingY - 62); ctx.fill();
@@ -775,16 +626,24 @@ export class IntroCutscene {
     }
 
     drawHero(ctx: CanvasRenderingContext2D, x: number, y: number, color: string, visual: 'NORMAL' | 'SPIKY') {
+        y -= 30; // Keep planted feet on the hall, steps, balcony and forest floor.
         ctx.save(); ctx.strokeStyle = color; ctx.lineWidth = 4; ctx.lineCap = 'round'; ctx.shadowBlur = 10; ctx.shadowColor = color;
         const headY = (['WALK_IN', 'STAIRCASE_CLIMB', 'FOREST_DROP', 'TECH_KIDNAP', 'VINN_LANDING', 'FOLLOW_TRAIL'].includes(this.phase)) ? y - 50 : y - 35;
         ctx.beginPath(); ctx.arc(x, headY, 12, 0, Math.PI * 2); ctx.stroke();
         if (visual === 'SPIKY') { ctx.beginPath(); ctx.moveTo(x - 15, headY - 10); ctx.lineTo(x - 5, headY - 25); ctx.lineTo(x, headY - 12); ctx.lineTo(x + 5, headY - 25); ctx.lineTo(x + 15, headY - 10); ctx.stroke(); }
         ctx.beginPath(); ctx.moveTo(x, headY + 12); ctx.lineTo(x, y); ctx.stroke();
-        const isWalking = ['WALK_IN', 'STAIRCASE_CLIMB', 'BALCONY_WALK', 'FOLLOW_TRAIL'].includes(this.phase);
-        const s = isWalking ? Math.sin(this.timer * 12) * 15 : 0;
+        const isWalking = this.motionActive && ['WALK_IN', 'STAIRCASE_CLIMB', 'BALCONY_WALK', 'FOLLOW_TRAIL'].includes(this.phase);
+        const s = isWalking ? Math.sin(this.timer * 12) * 15 : 10;
         ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - s, y + 30); ctx.stroke();
         ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + s, y + 30); ctx.stroke();
         const carryingRose = this.dialogueIndex < 3 || this.phase === 'BALCONY_WALK' || this.phase === 'BALCONY_TALK';
+        const speaking = this.currentDialogue?.speaker === 'Vinn' || this.currentDialogue?.speaker.includes('Duo') || this.currentDialogue?.speaker.includes('Dúo');
+        const gesture = speaking ? Math.sin(this.phaseTime * 5) * 5 : 0;
+        ctx.beginPath(); ctx.moveTo(x, headY + 22);
+        if (this.phase === 'VINN_GRABS_BRICK') ctx.lineTo(this.balconyBrickX + 8, 296);
+        else if (this.phase === 'VINN_JUMPS') ctx.lineTo(x + 22, headY - 8);
+        else ctx.lineTo(x + 18, carryingRose ? headY + 30 : y - 10 - gesture);
+        ctx.moveTo(x, headY + 22); ctx.lineTo(x - 18, y - 8 + (isWalking ? s * 0.5 : 0)); ctx.stroke();
         if (carryingRose) {
             ctx.beginPath(); ctx.moveTo(x, headY + 22); // Note: Simplified
             if (visual === 'NORMAL') this.drawRose(ctx, x + 15, headY + 30);
@@ -862,6 +721,8 @@ export class IntroCutscene {
 }
 
 export class World1ClearCutscene {
+    phaseTime = 0;
+    private timeline?: DialogueTimeline<World1ClearCutscene>;
     phase: string = 'TALK_WEDDING';
     timer: number = 0;
     dialogueIndex: number = 0;
@@ -900,46 +761,16 @@ export class World1ClearCutscene {
     }
 
     update(dt: number): boolean | { speaker: string, text: string } | null {
-        this.timer += dt;
-        switch (this.phase) {
-            case 'TALK_WEDDING':
-                if (this.dialogueIndex >= 2) { this.phase = 'BOT_NOTICE'; this.timer = 0; }
-                if (this.dialogueIndex >= 5) this.hasCrown = true;
-                break;
-            case 'BOT_NOTICE':
-                this.botX += (850 - this.botX) * 0.1;
-                if (this.dialogueIndex >= 3) { this.phase = 'GOLEM_ENTERS'; this.timer = 0; }
-                if (this.dialogueIndex >= 5) this.hasCrown = true;
-                break;
-            case 'GOLEM_ENTERS':
-                this.botX += (1200 - this.botX) * 0.1;
-                this.boss1X += (800 - this.boss1X) * 0.05;
-                if (this.dialogueIndex >= 5) { this.hasCrown = true; this.phase = 'REPAIR_ORDER'; this.timer = 0; }
-                break;
-            case 'REPAIR_ORDER':
-                this.botX += (750 - this.botX) * 0.1;
-                if (this.timer > 1.5) {
-                    this.boss1X += 5; this.botX += 5;
-                    if (this.boss1X > 1100) { this.phase = 'BLAZE_PROMOTION'; this.timer = 0; }
-                }
-                break;
-            case 'BLAZE_PROMOTION':
-                if (this.dialogueIndex >= 7) this.advanceDialogue();
-                if (this.dialogueIndex >= 8) { this.phase = 'LUNCH_EXIT'; this.timer = 0; }
-                break;
-            case 'LUNCH_EXIT':
-                if (this.dialogueIndex >= 8) {
-                    this.colossusY += 2; this.queenY += 2;
-                    if (this.timer > 3) return true;
-                }
-                break;
-        }
-        this.currentDialogue = null;
-        if (this.dialogueIndex < this.dialogues.length) { this.currentDialogue = this.dialogues[this.dialogueIndex]; return this.currentDialogue; }
-        return null;
+        this.timeline ??= world1Checkpoints();
+        const finished = this.timeline.update(this, dt);
+        return finished || this.currentDialogue;
     }
 
-    advanceDialogue() { if (this.dialogueIndex < this.dialogues.length) { this.dialogueIndex++; this.timer = 0; } }
+    advanceDialogue() {
+        this.timeline ??= world1Checkpoints();
+        this.timeline.advance(this);
+        this.update(0);
+    }
 
     draw(ctx: CanvasRenderingContext2D) {
         ctx.save();
@@ -1048,6 +879,8 @@ export class World1ClearCutscene {
 }
 
 export class World2ClearCutscene {
+    phaseTime = 0;
+    private timeline?: DialogueTimeline<World2ClearCutscene>;
     phase: string = 'TALK_WEDDING';
     timer: number = 0;
     dialogueIndex: number = 0;
@@ -1088,20 +921,16 @@ export class World2ClearCutscene {
     }
 
     update(dt: number): boolean | { speaker: string, text: string } | null {
-        this.timer += dt;
-        switch (this.phase) {
-            case 'TALK_WEDDING': if (this.dialogueIndex >= 2) { this.phase = 'BLAZE_ENTERS'; this.timer = 0; } break;
-            case 'BLAZE_ENTERS': this.boss2X += (800 - this.boss2X) * 0.05; if (this.dialogueIndex >= 5) { this.phase = 'SUIT_UP'; this.timer = 0; } break;
-            case 'SUIT_UP': this.hasSuit = true; if (this.dialogueIndex >= 8) { this.phase = 'QUEEN_RESIST'; this.timer = 0; } break;
-            case 'QUEEN_RESIST': this.botX += (650 - this.botX) * 0.1; if (this.timer > 2) { this.phase = 'FINAL_EXIT'; this.timer = 0; } break;
-            case 'FINAL_EXIT': this.colossusY += 2; this.queenY += 2; this.boss2X += 2; this.botX += 2; if (this.timer > 3) return true; break;
-        }
-        this.currentDialogue = null;
-        if (this.dialogueIndex < this.dialogues.length) { this.currentDialogue = this.dialogues[this.dialogueIndex]; return this.currentDialogue; }
-        return null;
+        this.timeline ??= world2Checkpoints();
+        const finished = this.timeline.update(this, dt);
+        return finished || this.currentDialogue;
     }
 
-    advanceDialogue() { if (this.dialogueIndex < this.dialogues.length) { this.dialogueIndex++; this.timer = 0; } }
+    advanceDialogue() {
+        this.timeline ??= world2Checkpoints();
+        this.timeline.advance(this);
+        this.update(0);
+    }
 
     draw(ctx: CanvasRenderingContext2D) {
         ctx.save();
@@ -1139,6 +968,8 @@ export class World2ClearCutscene {
 export type World3IntroPhase = 'ALTAR_SCENE' | 'VINN_ARRIVES' | 'INK_ANGRY' | 'GOLEM_SWORD' | 'INK_CHASE_START' | 'RUN_CIRCLES' | 'JUMP_OFF' | 'QUEEN_REACTION';
 
 export class World3BossCutscene {
+    phaseTime = 0;
+    private timeline?: DialogueTimeline<World3BossCutscene>;
     phase: World3IntroPhase = 'ALTAR_SCENE';
     timer: number = 0;
     dialogueIndex: number = 0;
@@ -1193,118 +1024,15 @@ export class World3BossCutscene {
     }
 
     update(dt: number): boolean {
-        this.timer += dt;
-
-        switch (this.phase) {
-            case 'ALTAR_SCENE':
-                if (this.dialogueIndex >= 3) {
-                    this.phase = 'VINN_ARRIVES';
-                    this.timer = 0;
-                }
-                break;
-            case 'VINN_ARRIVES':
-                this.vinnX += (480 - this.vinnX) * 0.1;
-                this.vinnY = 430;
-                if (this.timer > 2.0 && this.dialogueIndex > 3) {
-                    this.phase = 'INK_ANGRY';
-                    this.timer = 0;
-                }
-                break;
-            case 'INK_ANGRY':
-                this.inkX += Math.sin(this.timer * 20) * 5; // Shake
-                if (this.timer > 2.0 && this.dialogueIndex > 4) {
-                    this.phase = 'GOLEM_SWORD';
-                    this.timer = 0;
-                    this.golemSwordDrawn = true;
-                }
-                break;
-            case 'GOLEM_SWORD':
-                if (this.timer > 2.0 && this.dialogueIndex > 5) {
-                    this.phase = 'INK_CHASE_START';
-                    this.timer = 0;
-                }
-                break;
-            case 'INK_CHASE_START':
-                this.inkX += Math.sin(this.timer * 30) * 10; // Intense shake
-                if (this.timer > 2.5 && this.dialogueIndex > 6) {
-                    this.phase = 'RUN_CIRCLES';
-                    this.timer = 0;
-                    // Prepare chase start positions
-                    this.vinnX = 400;
-                    this.vinnY = 320;
-                }
-                break;
-            case 'RUN_CIRCLES':
-                this.circleTimer += dt * 8; // Faster chase
-                // Chase back and forth on the platform/ramp area
-                const chaseCenter = 300;
-                const chaseWidth = 150;
-                this.vinnX = chaseCenter + Math.sin(this.circleTimer) * chaseWidth;
-                // Vinn stays on the high platform for now
-                this.vinnY = 320; 
-                this.inkX = chaseCenter + Math.sin(this.circleTimer - 0.4) * chaseWidth;
-                this.inkY = 320;
-
-                if (this.timer > 5.0) {
-                    this.phase = 'JUMP_OFF';
-                    this.timer = 0;
-                }
-                break;
-            case 'JUMP_OFF':
-                // Vinn runs to the LEFT edge and jumps
-                this.vinnX -= 12;
-                if (this.vinnX < 50) {
-                    // Gravity jump arc off the left edge
-                    this.vinnY = 320 - Math.sin(Math.min(1, this.timer) * Math.PI) * 50 + (this.timer * 500);
-                }
-                
-                this.inkX -= 9; // Chasing behind
-                if (this.timer > 2.0) {
-                    this.phase = 'QUEEN_REACTION';
-                    this.timer = 0;
-                    this.dialogueIndex++; // Auto advance to Queen's cry
-                }
-                break;
-            case 'QUEEN_REACTION':
-                // Queen tries to follow
-                if (this.dialogueIndex === 7) {
-                    this.queenX += (50 - this.queenX) * 0.05;
-                    // Golem moves to block her
-                    this.golemX += (this.queenX - 60 - this.golemX) * 0.1;
-                    this.golemY = 350; // Jumps up to the platform to stop her
-                }
-                
-                if (this.timer > 4.0 && this.dialogueIndex >= 8) {
-                    return true; // Sequence finished after Golem's line
-                }
-                break;
-        }
-
-        if (this.dialogueIndex < this.dialogues.length) {
-            this.currentDialogue = this.dialogues[this.dialogueIndex];
-        } else {
-            this.currentDialogue = null;
-        }
-
-        return false;
+        this.timeline ??= world3Checkpoints();
+        const finished = this.timeline.update(this, dt);
+        return finished;
     }
 
     advanceDialogue() {
-        if (this.dialogueIndex < this.dialogues.length && this.phase !== 'RUN_CIRCLES' && this.phase !== 'JUMP_OFF') {
-            const currentPhaseLimits = {
-                'ALTAR_SCENE': 2,
-                'VINN_ARRIVES': 3,
-                'INK_ANGRY': 4,
-                'GOLEM_SWORD': 5,
-                'INK_CHASE_START': 6,
-                'QUEEN_REACTION': 8
-            };
-            const limit = currentPhaseLimits[this.phase as keyof typeof currentPhaseLimits];
-            if (this.dialogueIndex <= limit) {
-                this.dialogueIndex++;
-                this.timer = 0;
-            }
-        }
+        this.timeline ??= world3Checkpoints();
+        this.timeline.advance(this);
+        this.update(0);
     }
 
     draw(ctx: CanvasRenderingContext2D) {
@@ -1506,6 +1234,8 @@ export class World3BossCutscene {
 }
 
 export class World3EscapeCutscene {
+    phaseTime = 0;
+    private timeline?: DialogueTimeline<World3EscapeCutscene>;
     vinnX: number = 0;
     vinnY: number = 600; // Below edge
     queenX: number = 350;
@@ -1546,37 +1276,15 @@ export class World3EscapeCutscene {
     }
 
     update(dt: number): boolean {
-        this.timer += dt;
-        
-        if (this.phase === 'ENTRANCE') {
-            // Vinn climbs up from left edge
-            this.vinnX = 20;
-            if (this.vinnY > 320) this.vinnY -= 3;
-            else {
-                // Ink Colossus flies up from right
-                this.inkX = 500;
-                if (this.inkY > 320) this.inkY -= 4;
-                else {
-                    if (this.timer > 2) this.phase = 'DIALOGUE';
-                }
-            }
-        }
-
-        if (this.phase === 'DIALOGUE') {
-            if (this.dialogueIndex < this.dialogues.length) {
-                this.currentDialogue = this.dialogues[this.dialogueIndex];
-            } else {
-                return true; // Sequence finished
-            }
-        }
-        return false;
+        this.timeline ??= escapeCheckpoints(this);
+        const finished = this.timeline.update(this, dt);
+        return finished;
     }
 
     advanceDialogue() {
-        if (this.dialogueIndex < this.dialogues.length) {
-            this.dialogueIndex++;
-            this.timer = 0;
-        }
+        this.timeline ??= escapeCheckpoints(this);
+        this.timeline.advance(this);
+        this.update(0);
     }
 
     draw(ctx: CanvasRenderingContext2D) {

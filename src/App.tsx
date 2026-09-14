@@ -10,11 +10,14 @@ import { MusicManager } from './game/SoundEngine';
 import { useGameLoop } from './game/useGameLoop';
 import { World1Map } from './game/WorldMap';
 import { DuffBoss } from './game/DuffBoss';
+import { ForestEncounter } from './game/ForestEncounter';
 import { FOREST_LEVELS, FOREST_BUSHES, FOREST_LETTERS, DUFF_ARENA, FOREST_NAMES, drawForestWorld, drawBush, drawQueenPaper } from './game/ForestWorld';
 import { drawVictory } from './game/Victory';
 import grasslandsUrl from '../Grasslands.mp3?url';
 import winningUrl from '../Winning.MP3?url';
+import mapMusicUrl from '../Map.mp3?url';
 
+import { FOREST_NAMES_ES, FOREST_LETTERS_ES } from './game/ForestText';
 type WorldTheme = 'FOREST' | 'VOLCANO' | 'PAINT_LAND';
 
 const GAME_WIDTH = 1000;
@@ -157,6 +160,7 @@ function App() {
     const vinn2Ref = useRef<Vinn>(new Vinn(150, 420, vinn2Color, 'SPIKY', 'Jhon'));
     const mapRef = useRef(new World1Map());
     const duffRef = useRef<DuffBoss | null>(null);
+    const roomRef = useRef<ForestEncounter | null>(null);
     const [mapSelected, setMapSelected] = useState(1);
     const [completedForest, setCompletedForest] = useState<number[]>(() => {
         try { const saved = JSON.parse(localStorage.getItem('vinns_quest_forest_clears') || '[]'); return Array.isArray(saved) ? saved.filter((n: unknown) => typeof n === 'number' && n >= 1 && n <= 8) : []; }
@@ -166,7 +170,7 @@ function App() {
     const sceneryTime = useRef(0);
     const victoryTime = useRef(0);
     const [victoryStyle, setVictoryStyle] = useState(0);
-    const recordedAudio = useRef<{ forest: HTMLAudioElement; victory: HTMLAudioElement } | null>(null);
+    const recordedAudio = useRef<{ forest: HTMLAudioElement; victory: HTMLAudioElement; map: HTMLAudioElement } | null>(null);
     const platformsRef = useRef<Platform[]>([]);
     const queenPosRef = useRef({ x: 0, y: 0 });
     const currentMgRef = useRef<string | null>(null);
@@ -256,21 +260,22 @@ function App() {
     }, [completedForest]);
 
     useEffect(() => {
-        const forest = new Audio(grasslandsUrl), victory = new Audio(winningUrl);
+        const forest = new Audio(grasslandsUrl), victory = new Audio(winningUrl), map = new Audio(mapMusicUrl);
         forest.loop = true; forest.volume = 0.45; victory.loop = false; victory.volume = 0.55;
-        recordedAudio.current = { forest, victory };
+        map.loop = true; map.volume = 0.45;
+        recordedAudio.current = { forest, victory, map };
         const resumeAudio = () => {
-            for (const track of [forest, victory]) if (track.dataset.active === 'true' && !track.ended) void track.play().catch(() => {});
+            for (const track of [forest, victory, map]) if (track.dataset.active === 'true' && !track.ended) void track.play().catch(() => {});
         };
         window.addEventListener('pointerdown', resumeAudio);
         window.addEventListener('keydown', resumeAudio);
-        return () => { forest.pause(); victory.pause(); window.removeEventListener('pointerdown', resumeAudio); window.removeEventListener('keydown', resumeAudio); };
+        return () => { forest.pause(); victory.pause(); map.pause(); window.removeEventListener('pointerdown', resumeAudio); window.removeEventListener('keydown', resumeAudio); };
     }, []);
     useEffect(() => {
         const audio = recordedAudio.current; if (!audio) return;
-        const forestActive = (currentWorld === 1 && gameState === 'PLAYING') || gameState === 'TUTORIAL' || gameState === 'WORLD_MAP';
+        const forestActive = (currentWorld === 1 && gameState === 'PLAYING') || gameState === 'TUTORIAL';
         const victoryActive = currentWorld === 1 && gameState === 'LEVEL_TRANSITION';
-        for (const [track, active] of [[audio.forest, forestActive], [audio.victory, victoryActive]] as const) {
+        for (const [track, active] of [[audio.forest, forestActive], [audio.victory, victoryActive], [audio.map, gameState === 'WORLD_MAP']] as const) {
             track.dataset.active = String(active);
             if (active) { musicRef.current.stop(); void track.play().catch(() => {}); }
             else { track.pause(); if (track === audio.victory) track.currentTime = 0; }
@@ -296,16 +301,17 @@ function App() {
         setGameState('LEVEL_TRANSITION');
     };
     const startTutorial = () => {
+        roomRef.current = null;
         vinnRef.current.reset(100, 430); vinn2Ref.current.reset(150, 430);
         enemiesRef.current = []; bossRef.current = null; duffRef.current = null; itemsRef.current = [];
         cameraXRef.current = 0; setTutorialPhase(0); setCurrentWorld(1); setCurrentLevel(1);
         setKeys({}); setGameState('TUTORIAL');
     };
     const nearbyNote = () => {
-        if (currentWorld !== 1 || gameState !== 'PLAYING' || duffRef.current?.active) return null;
-        for (const note of FOREST_LETTERS[currentLevel - 1]) {
+        if (currentWorld !== 1 || gameState !== 'PLAYING' || duffRef.current?.active || roomRef.current?.inside) return null;
+        for (const [index, note] of FOREST_LETTERS[currentLevel - 1].entries()) {
             if (Math.abs(vinnRef.current.x - note.x) < 70 && Math.abs(vinnRef.current.y - 430) < 65)
-                return note.text;
+                return language === 'en' ? note.text : FOREST_LETTERS_ES[currentLevel - 1][index];
         }
         return null;
     };
@@ -313,7 +319,11 @@ function App() {
     const inkChase = currentWorld === 3 && currentLevel === 5 && bossRef.current?.type === 'INK_COLOSSUS';
 
     const advanceCutscene = () => {
-        if (gameState === 'INTRO_CUTSCENE') {
+        if (gameState === 'PLAYING' && roomRef.current?.frozen) {
+            roomRef.current.advanceDialogue();
+        } else if (gameState === 'PLAYING' && duffRef.current?.frozen) {
+            duffRef.current.advanceDialogue();
+        } else if (gameState === 'INTRO_CUTSCENE') {
             musicRef.current.resume();
             cutsceneRef.current.advanceDialogue();
         } else if (gameState === 'WORLD1_INTERLUDE' && interlude1Ref.current) {
@@ -343,12 +353,17 @@ function App() {
                 return;
             }
             if (noteRef.current) { if (k === 'e' || k === 'escape') noteRef.current = null; return; }
-            if (duffRef.current?.phase === 'INTRO' && (k === ' ' || k === 'e')) { duffRef.current.startBattle(); return; }
+            if (gameState === 'PLAYING' && (k === ' ' || k === 'e') && (roomRef.current?.frozen || duffRef.current?.frozen)) {
+                if (!e.repeat) advanceCutscene(); return;
+            }
+            if (gameState === 'PLAYING' && k === 'e' && !e.repeat && roomRef.current?.canEnter(isTwoPlayer ? [vinnRef.current, vinn2Ref.current] : [vinnRef.current])) {
+                roomRef.current.enter(); setKeys({}); mobileKeysRef.current = {}; return;
+            }
             if (k === 'e' && !e.repeat) { noteRef.current = nearbyNote(); if (noteRef.current) return; }
             setKeys(prev => ({ ...prev, [k]: true }));
             if (e.repeat) return;
 
-            const canMove = ['PLAYING', 'TUTORIAL', 'MG_MUSHROOM_JUMP', 'MG_ESCAPE'].includes(gameState) && !duffRef.current?.frozen;
+            const canMove = ['PLAYING', 'TUTORIAL', 'MG_MUSHROOM_JUMP', 'MG_ESCAPE'].includes(gameState) && !duffRef.current?.frozen && !roomRef.current?.frozen;
             if (canMove && (k === 'w' || e.key === 'Control')) vinnRef.current.jump();
             if (canMove && isTwoPlayer && (e.key === 'ArrowUp' || e.key === 'Shift')) vinn2Ref.current.jump();
 
@@ -393,7 +408,7 @@ function App() {
             window.removeEventListener('mousemove', handleMouseMove);
             window.removeEventListener('mousedown', handleMouseDown);
         };
-    }, [gameState, currentWorld, currentLevel, isTwoPlayer, completedForest, unlockedProgress]);
+    }, [gameState, currentWorld, currentLevel, isTwoPlayer, completedForest, unlockedProgress, language]);
 
     const createEnemyOnPlatform = (x: number, type: LevelEnemyType, platforms: Platform[]) => {
         const enemyType: EnemyType = type === 'NORMAL' ? 'REGULAR' : type;
@@ -433,6 +448,8 @@ function App() {
         const config = world.levels[levelIndex - 1];
         if (!config) { setGameState('WORLD_COMPLETE'); return; }
         const retryDuff = gameState === 'GAMEOVER' && worldIndex === 1 && levelIndex === 4 && duffRef.current?.active;
+        const retryRoom = gameState === 'GAMEOVER' && worldIndex === currentWorld && levelIndex === currentLevel && roomRef.current?.inside;
+        roomRef.current = worldIndex === 1 && [3, 8].includes(levelIndex) ? new ForestEncounter(levelIndex === 3 ? 'BEAR' : 'GOLEM', config.length) : null;
         noteRef.current = null; castleSequenceRef.current = { active: false, triggered: false, timer: 0 };
         vinnRef.current.reset(100, 430); vinn2Ref.current.reset(150, 430);
         particlesRef.current = []; rocksRef.current = []; fireFlamesRef.current = []; bossProjectilesRef.current = [];
@@ -454,11 +471,11 @@ function App() {
         vinnRef.current.health = vinnRef.current.maxHealth;
         vinnRef.current.weapon = (worldIndex === 3 && levelIndex === 5) ? 'HAND' : 'SWORD';
         cameraXRef.current = 0;
-        enemiesRef.current = config.enemies.map(e => createEnemyOnPlatform(e.x, e.type, config.platforms));
+        enemiesRef.current = config.enemies.filter(e => e.type !== 'BEAR' || !roomRef.current).map(e => createEnemyOnPlatform(e.x, e.type, config.platforms));
         if (retryDuff) cameraXRef.current = DUFF_ARENA;
         itemsRef.current = (config.items ?? []).map(i => ({ ...i }));
 
-        if (config.isBoss) {
+        if (config.isBoss && !roomRef.current) {
             const startX = config.bossType === 'INK_COLOSSUS' ? -100 : config.length - 300;
             let startY = 460; // Golem/Default floor
             if (config.bossType === 'BLAZE_KING') startY = 300;
@@ -472,6 +489,7 @@ function App() {
         } else {
             bossRef.current = null;
         }
+        if (retryRoom && roomRef.current) roomRef.current.enter();
 
         // Generate paint puddles for Paint Land
         if (worldIndex === 3) {
@@ -693,11 +711,29 @@ function App() {
         sceneryTime.current += dt;
         if (gameState === 'WORLD_MAP') { mapRef.current.update(dt); mapRef.current.draw(ctx, language); return; }
         if (gameState === 'LEVEL_TRANSITION' && currentWorld === 1) {
-            victoryTime.current += dt; drawVictory(ctx, victoryTime.current, victoryStyle, vinnColor); return;
+            victoryTime.current += dt; drawVictory(ctx, victoryTime.current, victoryStyle, vinnColor, language); return;
         }
-        if (noteRef.current) { drawQueenPaper(ctx, noteRef.current); return; }
+        if (noteRef.current) { drawQueenPaper(ctx, noteRef.current, language); return; }
         const duff = duffRef.current;
-        const worldPlatforms = [...(levelConfig.platforms || []), ...(duff?.platforms || [])];
+        const room = currentWorld === 1 && gameState === 'PLAYING' ? roomRef.current : null;
+        const roomPlayers = isTwoPlayer ? [vinnRef.current, vinn2Ref.current] : [vinnRef.current];
+        if (room) {
+            room.updateScene(dt);
+            if (room.entryReady) {
+                room.entryReady = false;
+                roomPlayers.forEach((p, i) => {
+                    p.x = room.start + 140 + i * 50; p.y = 430; p.vx = 0; p.vy = 0;
+                    p.onGround = true; p.state = 'IDLE'; p.isCrouching = false;
+                    p.lastSafeX = p.x; p.lastSafeY = p.y;
+                });
+                enemiesRef.current = room.bear ? [room.bear] : [];
+                bossRef.current = room.boss;
+                itemsRef.current = []; rocksRef.current = []; particlesRef.current = [];
+                cameraXRef.current = room.start;
+                setKeys({}); mobileKeysRef.current = {};
+            }
+        }
+        const worldPlatforms = room?.inside ? room.platforms : [...(levelConfig.platforms || []), ...(duff?.platforms || [])];
 
         const tutorialPlatforms: Platform[] = [
             { x: 0, y: 460, w: 800, h: 20, type: 'NORMAL' },
@@ -725,12 +761,12 @@ function App() {
         if (gameState === 'PLAYING' || gameState === 'TUTORIAL') {
             leadX = isTwoPlayer ? Math.max(vinnRef.current.x, vinn2Ref.current.x) : vinnRef.current.x;
             let minX = 50;
-            if (currentWorld === 1 && currentLevel === 8 && leadX > activeLength - 950) minX = activeLength - 950;
+            if (room?.inside) minX = room.start + 35;
             if (duff?.active && duff.phase !== 'DEFEATED') minX = duff.machineStart + 40;
 
             // BOSS VS Trigger
             const boss = bossRef.current;
-            const shouldTriggerVS = gameState === 'PLAYING' && levelConfig.isBoss && leadX > activeLength - 950 && boss !== null && !boss.introPlayed;
+            const shouldTriggerVS = !room && gameState === 'PLAYING' && levelConfig.isBoss && leadX > activeLength - 950 && boss !== null && !boss.introPlayed;
             if (shouldTriggerVS && boss) {
                 boss.introPlayed = true;
                 if (boss.type !== 'INK_COLOSSUS') {
@@ -759,9 +795,9 @@ function App() {
 
 
             // P1 Update
-            const isFrozen = castleSequenceRef.current.active || isBlazeAngry || duff?.frozen;
+            const isFrozen = castleSequenceRef.current.active || isBlazeAngry || duff?.frozen || room?.frozen;
             const inputKeys = isFrozen ? {} : autoRunKeys;
-            if (!duff?.frozen) vinnRef.current.update(dt, inputKeys, activeLength - 50, activePlatforms, gameState === 'TUTORIAL' ? 0.7 : 1.0, minX);
+            if (!duff?.frozen && !room?.frozen) vinnRef.current.update(dt, inputKeys, activeLength - 50, activePlatforms, gameState === 'TUTORIAL' ? 0.7 : 1.0, minX);
             if (inkChase && !anyAiming && !isBlazeAngry) {
                 if (isAutoHalted) {
                     vinnRef.current.vx = 0;
@@ -775,7 +811,7 @@ function App() {
                 const iKeys: Record<string, boolean> = castleSequenceRef.current.active ? {} : {
                     'a': mergedKeys['arrowleft'], 'd': mergedKeys['arrowright'], ' ': mergedKeys['enter'], 'c': mergedKeys['arrowdown']
                 };
-                if (!isBlazeAngry && !duff?.frozen) {
+                if (!isBlazeAngry && !duff?.frozen && !room?.frozen) {
                     vinn2Ref.current.update(dt, iKeys, activeLength - 50, activePlatforms, 1.0, minX);
                     if (inkChase && !anyAiming) vinn2Ref.current.vx = Math.max(vinn2Ref.current.vx, 5.0);
                     else if (anyAiming) vinn2Ref.current.vx = 0;
@@ -799,9 +835,12 @@ function App() {
                     }
                 }
             }
-            if (currentWorld === 1 && currentLevel === 3 && enemiesRef.current.some(e => e.type === 'BEAR' && e.health > 0)) {
-                vinnRef.current.x = Math.min(vinnRef.current.x, activeLength - 180);
-                if (isTwoPlayer) vinn2Ref.current.x = Math.min(vinn2Ref.current.x, activeLength - 180);
+            if (room) {
+                // The doorway is mandatory; neither player can walk around it.
+                for (const p of roomPlayers) {
+                    p.x = Math.min(p.x, room.inside ? (room.cleared ? activeLength - 50 : activeLength - 180) : room.doorX + 35);
+                    if (room.inside) p.x = Math.max(room.start + 35, p.x);
+                }
             }
             anyAlive = vinnRef.current.health > 0 || (isTwoPlayer && vinn2Ref.current.health > 0);
 
@@ -1186,7 +1225,7 @@ function App() {
             }
         } else if (gameState === 'PLAYING') {
             if (vinnRef.current.x >= levelConfig.length - 100 && currentWorld === 1 &&
-                (!duff || duff.phase === 'DEFEATED') && (!bossRef.current || bossRef.current.health <= 0)) {
+                (!duff || duff.phase === 'DEFEATED') && (!room || room.cleared) && (!bossRef.current || bossRef.current.health <= 0)) {
                 beginForestVictory();
             } else if (vinnRef.current.x >= levelConfig.length - 100 && currentWorld !== 1) {
                 if (!levelConfig.isBoss) {
@@ -1250,14 +1289,16 @@ function App() {
                 inkProjectilesRef.current = inkProjectilesRef.current.filter(p => p.x > cameraXRef.current - 1000);
             }
             if (duff?.active) targetCamX = duff.machineStart;
+            if (room?.inside) targetCamX = room.start;
             cameraXRef.current += (targetCamX - cameraXRef.current) * 0.1;
 
             // ENEMIES, BOSS & PROJECTILES UPDATE (ONLY IF NOT AIMING)
-            if (!anyAiming) {
-                // Render Rocks (Golem)
+            if (!anyAiming && !room?.frozen && !duff?.frozen) {
+                // Slow Golem's rocks to 70% speed, independent of frame rate.
+                const rockStep = dt * 60 * 0.7;
                 rocksRef.current = rocksRef.current.filter(rock => {
-                    rock.y += rock.vy;
-                    rock.vy += 0.5;
+                    rock.y += rock.vy * rockStep;
+                    rock.vy += 0.5 * rockStep;
 
                     const rockHitsPlayer = (p: { x: number, y: number, isHit: boolean, takeDamage: Function }) => {
                         return !p.isHit && Math.abs(rock.x - p.x) < 25 && Math.abs(rock.y - p.y) < 30;
@@ -1297,7 +1338,7 @@ function App() {
                     const dy = Math.abs(enemy.y - vinnRef.current.y);
                     const p1Slipping = vinnRef.current.isSlipping;
                     const animal = enemy.type === 'WOLF' || enemy.type === 'BEAR';
-                    const attackActive = animal ? enemy.attackTimer >= 0.65 && enemy.attackTimer < 0.95 : enemy.attackTimer < 0.1;
+                    const attackActive = enemy.attackKind === 'STOMP' ? false : animal ? enemy.attackTimer >= 0.65 && enemy.attackTimer < 0.95 : enemy.attackTimer < 0.1;
                     const range = enemy.type === 'BEAR' ? 95 : animal ? 65 : 40;
                     if (dx < range && dy < 60 && enemy.state === 'ATTACKING' && attackActive) {
                         if (p1Slipping) { vinnRef.current.isHit = false; } // slipping = no invincibility frames
@@ -1309,7 +1350,7 @@ function App() {
                         const p2Slipping = vinn2Ref.current.isSlipping;
                         if (dx2 < range && dy2 < 60 && enemy.state === 'ATTACKING' && attackActive) {
                             if (p2Slipping) { vinn2Ref.current.isHit = false; }
-                            vinn2Ref.current.takeDamage(1);
+                            vinn2Ref.current.takeDamage(enemy.type === 'BEAR' ? 3 : 1);
                         }
                     }
                 });
@@ -1389,6 +1430,9 @@ function App() {
                         }
                     }
                 }
+
+                room?.updateFight(dt, roomPlayers);
+                if (room?.cleared) rocksRef.current = [];
 
                 // ─── INK COLOSSUS FIGHT MECHANICS ────────────────────────────────────
                 if (inkChase && bossRef.current) {
@@ -1719,7 +1763,8 @@ function App() {
             }
             ctx.globalAlpha = 1.0;
         } else if (currentTheme === 'FOREST') {
-            drawForestWorld(ctx, camX, gameState === 'TUTORIAL' ? 1 : currentLevel, sceneryTime.current);
+            if (room?.inside) room.drawInterior(ctx);
+            else drawForestWorld(ctx, camX, gameState === 'TUTORIAL' ? 1 : currentLevel, sceneryTime.current, language);
         }
         else if (currentTheme === 'VOLCANO') {
             const grad = ctx.createLinearGradient(0, 0, 0, 500);
@@ -1802,10 +1847,10 @@ function App() {
                 gradient.addColorStop(0, '#ff00ff'); gradient.addColorStop(1, '#00ffff');
                 ctx.fillStyle = gradient; ctx.fillRect(sx, sy, p.w, 20);
             } else {
-                ctx.fillStyle = (currentTheme === 'FOREST') ? '#4d2600' : (currentTheme === 'VOLCANO' ? '#222' : (currentTheme === 'MUSHROOM_SKY' ? '#8bc34a' : '#444'));
+                ctx.fillStyle = room?.inside ? '#69645d' : (currentTheme === 'FOREST') ? '#4d2600' : (currentTheme === 'VOLCANO' ? '#222' : (currentTheme === 'MUSHROOM_SKY' ? '#8bc34a' : '#444'));
                 ctx.fillRect(sx, sy, p.w, 15);
                 ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.strokeRect(sx, sy, p.w, 15);
-                if (currentTheme === 'FOREST' && currentLevel !== 4) {
+                if (currentTheme === 'FOREST' && currentLevel !== 4 && !room?.inside) {
                     ctx.fillStyle = '#85b96b'; ctx.fillRect(sx, sy - 4, p.w, 5);
                     ctx.fillStyle = '#52753e'; for (let x = Math.max(0, -sx); x < Math.min(p.w, 1000 - sx); x += 18) ctx.fillRect(sx + x, sy - 8, 4, 5);
                 }
@@ -1813,7 +1858,7 @@ function App() {
             ctx.restore();
         });
 
-        if (currentTheme === 'FOREST' && gameState !== 'TUTORIAL') {
+        if (currentTheme === 'FOREST' && gameState !== 'TUTORIAL' && !room?.inside) {
             FOREST_BUSHES[currentLevel - 1].forEach(x => drawBush(ctx, x - camX, 460));
             for (const { x } of FOREST_LETTERS[currentLevel - 1]) {
                 ctx.fillStyle = '#9a7850'; ctx.fillRect(x - camX - 12, 449, 28, 9);
@@ -1821,14 +1866,15 @@ function App() {
                 ctx.fillStyle = '#af7590'; ctx.fillRect(x - camX - 11, 445, 5, 5);
             }
             const note = nearbyNote();
-            if (note) { ctx.fillStyle = '#fff0bd'; ctx.font = '16px monospace'; ctx.textAlign = 'center'; ctx.fillText('E: read the Queen’s letter', vinnRef.current.x - camX, 355); }
-            if (currentLevel === 3 && enemiesRef.current.some(e => e.type === 'BEAR' && e.health > 0)) {
+            if (note) { ctx.fillStyle = '#fff0bd'; ctx.font = '16px monospace'; ctx.textAlign = 'center'; ctx.fillText(language === 'en' ? 'E: read the Queen’s letter' : 'E: leer la carta de la Reina', vinnRef.current.x - camX, 355); }
+            if (currentLevel === 3 && !room && enemiesRef.current.some(e => e.type === 'BEAR' && e.health > 0)) {
                 ctx.fillStyle = '#bb7352'; ctx.fillRect(levelConfig.length - 140 - camX, 290, 18, 170);
-                ctx.fillStyle = '#ffe1a0'; ctx.font = '16px monospace'; ctx.fillText('Defeat the bear to continue', levelConfig.length - 500 - camX, 225);
+                ctx.fillStyle = '#ffe1a0'; ctx.font = '16px monospace'; ctx.fillText(language === 'en' ? 'Defeat the bear to continue' : 'Vence al oso para continuar', levelConfig.length - 500 - camX, 225);
             }
             ctx.fillStyle = '#ecc87e'; ctx.fillRect(levelConfig.length - 95 - camX, 365, 7, 95);
             ctx.fillStyle = '#f08879'; ctx.fillRect(levelConfig.length - 88 - camX, 365, 52, 26);
-            if (duff) duff.draw(ctx, camX);
+            if (duff) duff.draw(ctx, camX, language);
+            room?.drawDoor(ctx, camX, language, room.canEnter(roomPlayers));
         }
 
         // Draw paint puddles (Paint Land)
@@ -2098,7 +2144,7 @@ function App() {
         vinnRef.current.draw(ctx, camX, camY);
         if (vinnRef.current.doubleJumpTimer > 0) {
             ctx.save(); ctx.fillStyle = '#19352b'; ctx.fillRect(15, 65, 210, 30); ctx.fillStyle = '#d5f4d4';
-            ctx.font = '16px monospace'; ctx.textAlign = 'left'; ctx.fillText('DOUBLE JUMP: ' + Math.ceil(vinnRef.current.doubleJumpTimer) + 's', 23, 86); ctx.restore();
+            ctx.font = '16px monospace'; ctx.textAlign = 'left'; ctx.fillText((language === 'en' ? 'DOUBLE JUMP: ' : 'DOBLE SALTO: ') + Math.ceil(vinnRef.current.doubleJumpTimer) + 's', 23, 86); ctx.restore();
         }
         // Draw Jump Charge indicator
         if (gameState === 'MG_MUSHROOM_JUMP') {
@@ -2143,6 +2189,8 @@ function App() {
             ctx.fillText(bossRef.current.type, 400, 55);
         }
 
+
+        if (room) room.drawOverlay(ctx, camX, language);
 
         particlesRef.current = particlesRef.current.filter(p => {
             p.x += p.vx; p.y += p.vy; p.vy += 0.5; p.life -= dt * 2;
@@ -2204,7 +2252,7 @@ function App() {
                                 P1: {Math.ceil(vinnRef.current.health)}/{vinnRef.current.maxHealth}
                                 {isTwoPlayer && ` | P2: ${Math.ceil(vinn2Ref.current.health)}/${vinn2Ref.current.maxHealth}`}
                             </p>
-                            {vinnRef.current.hasDoubleJump && <span className="key-box" style={{ background: '#00f2ff', color: '#000' }}>DOUBLE_JUMP</span>}
+                            {vinnRef.current.hasDoubleJump && <span className="key-box" style={{ background: '#00f2ff', color: '#000' }}>{language === 'en' ? 'DOUBLE JUMP' : 'DOBLE SALTO'}</span>}
                             {false && false && (
                                 <button
                                     onClick={() => {
@@ -2413,6 +2461,11 @@ function App() {
                         </div>
                     )}
 
+                    {['INTRO_CUTSCENE', 'WORLD1_INTERLUDE', 'WORLD2_INTERLUDE', 'WORLD3_BOSS_INTRO', 'WORLD3_ESCAPE_CUTSCENE', 'ENDING_CUTSCENE'].includes(gameState) && (
+                        <div style={{ position: 'absolute', bottom: 64, left: '50%', transform: 'translateX(-50%)', pointerEvents: 'auto' }}>
+                            <button onClick={advanceCutscene}>{language === 'en' ? '[SPACE] NEXT DIALOGUE' : '[ESPACIO] SIGUIENTE DIÁLOGO'}</button>
+                        </div>
+                    )}
                     {gameState === 'INTRO_CUTSCENE' && (
                         <div style={{ position: 'absolute', top: 20, right: 20, pointerEvents: 'auto', zIndex: 9999 }}>
                             <button
@@ -2423,7 +2476,7 @@ function App() {
                                     startTutorial();
                                 }}
                             >
-                                SKIP CUTSCENE
+                                {language === 'en' ? 'SKIP CUTSCENE' : 'SALTAR ESCENA'}
                             </button>
                         </div>
                     )}
@@ -2440,7 +2493,7 @@ function App() {
                                     loadLevel(3, 5);
                                 }}
                             >
-                                SKIP CUTSCENE
+                                {language === 'en' ? 'SKIP CUTSCENE' : 'SALTAR ESCENA'}
                             </button>
                         </div>
                     )}
@@ -2474,30 +2527,30 @@ function App() {
 
                     {gameState === 'TUTORIAL' && (
                         <div className="tutorial-card">
-                            {tutorialPhase === 0 && <div><h2>Chapter 0: The Pursuit</h2><p>Vinn has landed! Walk with [A/D].</p></div>}
-                            {tutorialPhase === 1 && <div><h2>Over the logs</h2><p>Jump with [W] to stay on the trail!</p></div>}
-                            {tutorialPhase === 2 && <div><h2>A straggler!</h2><p>Slay the Tech Skeleton! [SPACE]</p></div>}
-                            {tutorialPhase === 3 && <button onClick={() => openWorldMap(1)}>OPEN WORLD MAP</button>}
+                            {tutorialPhase === 0 && <div><h2>{language === 'en' ? 'Chapter 0: The Pursuit' : 'Capítulo 0: La persecución'}</h2><p>{language === 'en' ? 'Vinn has landed! Walk with [A/D].' : '¡Vinn ha aterrizado! Camina con [A/D].'}</p></div>}
+                            {tutorialPhase === 1 && <div><h2>{language === 'en' ? 'Over the logs' : 'Sobre los troncos'}</h2><p>{language === 'en' ? 'Jump with [W] to stay on the trail!' : '¡Salta con [W] para seguir el sendero!'}</p></div>}
+                            {tutorialPhase === 2 && <div><h2>{language === 'en' ? 'A straggler!' : '¡Un rezagado!'}</h2><p>{language === 'en' ? 'Slay the Tech Skeleton! [SPACE]' : '¡Derrota al esqueleto TECH! [ESPACIO]'}</p></div>}
+                            {tutorialPhase === 3 && <button onClick={() => openWorldMap(1)}>{language === 'en' ? 'OPEN WORLD MAP' : 'ABRIR MAPA'}</button>}
                         </div>
                     )}
 
                     {gameState === 'WORLD_MAP' && (
                         <div className="map-actions">
                             <button onClick={() => changeMapSelection(-1)} disabled={mapSelected <= 1}>←</button>
-                            <button onClick={() => loadLevel(1, mapRef.current.selectedLevel)}>ENTER {mapSelected}: {FOREST_NAMES[mapSelected - 1]}</button>
+                            <button onClick={() => loadLevel(1, mapRef.current.selectedLevel)}>{language === 'en' ? 'ENTER' : 'ENTRAR'} {mapSelected}: {(language === 'en' ? FOREST_NAMES : FOREST_NAMES_ES)[mapSelected - 1]}</button>
                             <button onClick={() => changeMapSelection(1)} disabled={mapSelected >= mapRef.current.maxUnlocked}>→</button>
                             <button onClick={() => setGameState('START_MENU')}>MENU</button>
                         </div>
                     )}
                     {gameState === 'LEVEL_TRANSITION' && (
                         <div className={currentWorld === 1 ? 'victory-actions' : 'tutorial-card'}>
-                            <h2>LEVEL CLEAR</h2>
+                            <h2>{language === 'en' ? 'LEVEL CLEAR' : 'NIVEL SUPERADO'}</h2>
                             <button onClick={() => {
                                 if (currentWorld !== 1) loadLevel(currentWorld, currentLevel + 1);
                                 else if (currentLevel === 8) {
                                     interlude1Ref.current = new World1ClearCutscene(); interlude1Ref.current.setLanguage(language); setGameState('WORLD1_INTERLUDE');
                                 } else openWorldMap(currentLevel + 1);
-                            }}>{currentWorld === 1 ? 'CONTINUE' : 'NEXT LEVEL'}</button>
+                            }}>{currentWorld === 1 ? (language === 'en' ? 'CONTINUE' : 'CONTINUAR') : t('NEXT')}</button>
                         </div>
                     )}
 
@@ -2522,7 +2575,7 @@ function App() {
                         </div>
                     )}
                 </div>
-                <div className="controls-hint"><span>[A/D] MOVE • [W] JUMP • [C] CROUCH</span><span>[SPACE] ATTACK • [E] READ / SWITCH</span></div>
+                <div className="controls-hint"><span>{language === 'en' ? '[A/D] MOVE • [W] JUMP • [C] CROUCH' : '[A/D] MOVER • [W] SALTAR • [C] AGACHARSE'}</span><span>{language === 'en' ? '[SPACE] ATTACK • [E] READ / SWITCH' : '[ESPACIO] ATACAR • [E] LEER / BOTÓN'}</span></div>
                 <canvas ref={canvasRef} onClick={e => {
                     if (gameState !== 'WORLD_MAP') return;
                     const rect = e.currentTarget.getBoundingClientRect();
@@ -2566,7 +2619,7 @@ function App() {
                             >◀</button>
                             <button
                                 className="mobile-btn dpad-jump"
-                                onTouchStart={(e) => { e.preventDefault(); vinnRef.current.jump(); }}
+                                onTouchStart={(e) => { e.preventDefault(); if (!roomRef.current?.frozen && !duffRef.current?.frozen) vinnRef.current.jump(); }}
                             >▲</button>
                             <button
                                 className="mobile-btn dpad-right"
@@ -2580,10 +2633,11 @@ function App() {
                         {['PLAYING', 'TUTORIAL'].includes(gameState) && <>
                             <button className="mobile-btn" onPointerDown={() => { mobileKeysRef.current['c'] = true; }} onPointerUp={() => { mobileKeysRef.current['c'] = false; }} onPointerCancel={() => { mobileKeysRef.current['c'] = false; }}>C</button>
                             <button className="mobile-btn" onClick={() => {
-                                if (duffRef.current?.phase === 'INTRO') duffRef.current.startBattle();
+                                if (roomRef.current?.frozen || duffRef.current?.frozen) advanceCutscene();
+                                else if (roomRef.current?.canEnter(isTwoPlayer ? [vinnRef.current, vinn2Ref.current] : [vinnRef.current])) roomRef.current.enter();
                                 else if (noteRef.current) noteRef.current = null;
                                 else noteRef.current = nearbyNote();
-                            }}>READ</button>
+                            }}>{language === 'en' ? 'E / USE' : 'E / USAR'}</button>
                         </>}
                         <button
                             className="mobile-btn action-attack"
