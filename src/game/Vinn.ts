@@ -46,6 +46,30 @@ export class Vinn {
 
   maxHealth: number = 26;
   health: number = this.maxHealth;
+  restTimer = 0;
+  private recoveryProgress = 0;
+
+  restoreHealth() {
+    this.health = this.maxHealth;
+    this.isHit = false;
+    this.hitTimer = 0;
+    this.restTimer = 0;
+    this.recoveryProgress = 0;
+  }
+
+  recover(dt: number, resting: boolean) {
+    if (!resting || this.isHit || this.health <= 0 || this.health >= this.maxHealth) {
+      this.restTimer = 0; this.recoveryProgress = 0; return;
+    }
+    const before = this.restTimer;
+    this.restTimer += Math.max(0, dt);
+    this.recoveryProgress += Math.max(0, this.restTimer - 5) - Math.max(0, before - 5);
+    const points = Math.floor(this.recoveryProgress + 1e-9);
+    if (points > 0) {
+      this.health = Math.min(this.maxHealth, this.health + points);
+      this.recoveryProgress -= points;
+    }
+  }
   isHit: boolean = false;
   hitTimer: number = 0;
   color: string = '#00f2ff';
@@ -66,6 +90,8 @@ export class Vinn {
       this.vx = 0;
       this.vy = 0;
       this.health = this.maxHealth;
+      this.restTimer = 0;
+      this.recoveryProgress = 0;
       this.state = 'IDLE';
       this.onGround = true;
       this.isHit = false;
@@ -98,6 +124,8 @@ export class Vinn {
   takeDamage(amount: number, knockbackDir?: number, knockbackForce: number = 10) {
     if (this.isHit) return;
     this.health -= amount;
+    this.restTimer = 0;
+    this.recoveryProgress = 0;
     this.isHit = true;
     this.hitTimer = 0;
     
@@ -142,6 +170,7 @@ export class Vinn {
 
   update(dt: number, keys: Record<string, boolean>, maxX: number = 2350, platforms: {x: number, y: number, w: number, h?: number, type?: 'MUSHROOM' | 'PAINT' | 'NORMAL'}[] = [], speedMult: number = 1.0, minX: number = 50) {
     this.animTimer += dt;
+    this.recover(dt, this.onGround && this.state === 'IDLE' && Math.abs(this.vx) < 0.5 && !this.isSlipping && !this.isSinking && !keys['a'] && !keys['d'] && !keys['w'] && !keys[' ']);
     if (this.doubleJumpTimer > 0) {
       this.doubleJumpTimer = Math.max(0, this.doubleJumpTimer - dt);
       if (this.doubleJumpTimer === 0) this.hasDoubleJump = false;

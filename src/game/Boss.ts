@@ -1,4 +1,5 @@
-export type BossType = 'GOLEM' | 'BLAZE_KING' | 'INK_COLOSSUS';
+import { LivingVolcano } from './LivingVolcano';
+export type BossType = 'GOLEM' | 'BLAZE_KING' | 'INK_COLOSSUS' | 'LIVING_VOLCANO';
 
 export class Boss {
   x: number;
@@ -24,8 +25,9 @@ export class Boss {
   // Blaze King Overhaul
   rainTimer: number = 0;
   rainReady: boolean = false;
-  isEnraged: boolean = false;
-  angryTransitionTimer: number = 0;
+  volcano: LivingVolcano | null = null;
+  private assistCooldown = 0;
+  private assistStarted = false;
   defeatedFired: boolean = false;
   landingReady = false;
 
@@ -33,12 +35,17 @@ export class Boss {
     this.x = x;
     this.y = y;
     this.type = type;
-    this.health = type === 'GOLEM' ? 80 : (type === 'BLAZE_KING' ? 150 : 300);
+    this.health = type === 'LIVING_VOLCANO' ? 120 : type === 'GOLEM' ? 80 : (type === 'BLAZE_KING' ? 150 : 300);
     this.maxHealth = this.health;
+    if (type === 'LIVING_VOLCANO' || type === 'BLAZE_KING') this.volcano = new LivingVolcano(x);
   }
 
   update(dt: number, playerX: number) {
-    if (this.type === 'GOLEM' && this.health <= 0) return;
+    if (this.health <= 0 && this.type !== 'INK_COLOSSUS') {
+        this.state = 'DEFEATED'; this.volcano?.stop(); this.rainReady = false; return;
+    }
+    // Volcano-world encounters stay dormant until their entrance guide is finished.
+    if (this.volcano && this.state === 'IDLE') return;
     this.animTimer += dt;
     if (this.isHit) {
       this.hitTimer += dt;
@@ -96,31 +103,40 @@ export class Boss {
                 this.state = 'FLY_UP';
             }
         }
-    } else if (this.type === 'BLAZE_KING') {
-        const threshold = this.maxHealth * 0.4;
-        
-        // Enraged transition trigger
-        if (!this.isEnraged && this.health < threshold && this.state !== 'ANGRY_TRANSITION') {
-            this.state = 'ANGRY_TRANSITION';
-            this.angryTransitionTimer = 0;
-            this.attackTimer = 0;
+    } else if (this.type === 'LIVING_VOLCANO' && this.volcano) {
+        if (this.volcano.phase === 'SLEEP') this.volcano.start(true);
+        this.volcano.update(dt, playerX);
+        this.state = this.volcano.phase === 'EXPOSED' ? 'DIZZY' : 'VOLCANO_ATTACK';
+        this.isInvulnerable = this.state !== 'DIZZY';
+        if (this.volcano.phase === 'EXPOSED' && this.volcano.timer >= 5) {
+            this.volcano.start(true); this.state = 'VOLCANO_ATTACK'; this.isInvulnerable = true;
         }
-
-        if (this.state === 'ANGRY_TRANSITION') {
+    } else if (this.type === 'BLAZE_KING' && this.volcano) {
+        const assisting = ['VOLCANO_RISE', 'VOLCANO_BEAM', 'VOLCANO_RETURN'].includes(this.state);
+        if (!assisting) this.assistCooldown = Math.max(0, this.assistCooldown - dt);
+        // Replace the old rage boost. Repeat only after another full normal attack cycle.
+        if (!assisting && this.health < this.maxHealth * 0.4 && this.assistCooldown === 0 && (!this.assistStarted || this.state === 'WALKING')) {
+            this.state = 'VOLCANO_RISE'; this.attackTimer = 0; this.rainReady = false;
+            this.assistStarted = true;
+        }
+        if (this.state === 'VOLCANO_RISE') {
             this.isInvulnerable = true;
-            this.angryTransitionTimer += dt;
-            if (this.angryTransitionTimer > 3.0) {
-                this.isEnraged = true;
-                this.state = 'WALKING';
+            this.y = Math.max(-170, this.y - 360 * dt);
+            if (this.y <= -170) { this.state = 'VOLCANO_BEAM'; this.volcano.start(false); }
+        } else if (this.state === 'VOLCANO_BEAM') {
+            this.isInvulnerable = true; this.volcano.update(dt, playerX);
+            if (this.volcano.phase === 'EXPOSED') { this.state = 'VOLCANO_RETURN'; this.volcano.stop(); }
+        } else if (this.state === 'VOLCANO_RETURN') {
+            this.isInvulnerable = true; this.y = Math.min(460, this.y + 340 * dt);
+            if (this.y >= 460) { this.state = 'DIZZY'; this.isInvulnerable = false; this.attackTimer = 0; this.assistCooldown = 14; }
+        } else if (this.state === 'WALKING') {
+            this.x += Math.sin(this.animTimer * 3) * 150 * dt;
+            if (Math.abs(dist) < 400) {
+                this.x += (dist > 0 ? 1 : -1) * 180 * dt;
             }
-        } else if (this.state === 'WALKING' || this.state === 'IDLE') {
-            this.x += Math.sin(this.animTimer * 3) * 5;
-            const chaseDist = this.isEnraged ? 600 : 400;
-            if (Math.abs(dist) < chaseDist) {
-                this.x += (dist > 0 ? 1 : -1) * (this.isEnraged ? 5 : 3);
-            }
+            this.x = Math.max(this.volcano.center - 570, Math.min(this.volcano.center + 180, this.x));
             this.attackTimer += dt;
-            const cooldown = this.isEnraged ? 2.0 : 3.0;
+            const cooldown = 3.0;
             if (this.attackTimer > cooldown) {
                 this.attackTimer = 0;
                 this.state = 'RAINING_FIRE';
@@ -132,13 +148,13 @@ export class Boss {
             this.attackTimer += dt;
             
             // Pulse the rain signal
-            const rainInterval = this.isEnraged ? 0.15 : 0.4;
+            const rainInterval = 0.4;
             if (this.rainTimer > rainInterval) {
                 this.rainTimer = 0;
                 this.rainReady = true; // Signal App.tsx
             }
 
-            const rainDuration = this.isEnraged ? 3.0 : 2.5;
+            const rainDuration = 2.5;
             if (this.attackTimer > rainDuration) {
                 this.attackTimer = 0;
                 this.state = 'AERIAL_CHASE';
@@ -148,9 +164,10 @@ export class Boss {
             this.attackTimer += dt;
             // Float higher
             const targetY = 220;
-            this.y += (targetY - this.y) * 0.05;
+            this.y += (targetY - this.y) * (1 - Math.exp(-3 * dt));
             // Chase player X
-            this.x += (dist > 0 ? 1 : -1) * (this.isEnraged ? 8 : 6);
+            this.x += (dist > 0 ? 1 : -1) * 360 * dt;
+            this.x = Math.max(this.volcano.center - 570, Math.min(this.volcano.center + 180, this.x));
             
             if (this.attackTimer > 2.0) {
                 this.attackTimer = 0;
@@ -158,16 +175,17 @@ export class Boss {
             }
         } else if (this.state === 'CRUSHING') {
             this.isInvulnerable = true;
-            this.y += this.isEnraged ? 20 : 15;
+            this.y += 720 * dt;
             if (this.y >= 460) {
                 this.y = 460;
                 this.state = 'DIZZY';
+                this.isInvulnerable = false;
                 this.attackTimer = 0;
             }
         } else if (this.state === 'DIZZY') {
             this.isInvulnerable = false;
             this.attackTimer += dt;
-            const dizzyDuration = this.isEnraged ? 2.5 : 4.0;
+            const dizzyDuration = 4.0;
             if (this.attackTimer > dizzyDuration) {
                 this.state = 'WAKING';
                 this.attackTimer = 0;
@@ -175,7 +193,7 @@ export class Boss {
         } else if (this.state === 'WAKING') {
             this.isInvulnerable = true;
             this.attackTimer += dt;
-            this.y += (300 - this.y) * 0.05; // Return to hover height
+            this.y += (300 - this.y) * (1 - Math.exp(-3 * dt)); // Return to hover height
             if (this.attackTimer > 1.0) {
                 this.state = 'WALKING';
                 this.attackTimer = 0;
@@ -237,10 +255,12 @@ export class Boss {
 
   takeDamage(amount: number) {
     if (this.type === 'INK_COLOSSUS') return false; // Must use Weak Point system
-    if (this.isInvulnerable || this.isHit) return false;
+    if (this.health <= 0 || this.isInvulnerable || this.isHit) return false;
+    if (this.volcano && (this.state === 'IDLE' || (this.type === 'LIVING_VOLCANO' && this.state !== 'DIZZY'))) return false;
     this.health -= amount;
     this.isHit = true;
     this.hitTimer = 0;
+    if (this.health <= 0) { this.health = 0; this.state = 'DEFEATED'; this.volcano?.stop(); this.rainReady = false; }
     return true;
   }
 
@@ -266,6 +286,7 @@ export class Boss {
   }
 
   draw(ctx: CanvasRenderingContext2D, cameraX: number) {
+    if (this.type === 'LIVING_VOLCANO') { this.volcano?.drawCore(ctx, cameraX, this.isHit); return; }
     const relX = this.x - cameraX;
     const { type, animTimer, isHit, state, attackTimer, isInvulnerable, direction } = this;
 
@@ -308,7 +329,7 @@ export class Boss {
       ctx.fillStyle = gradient;
       ctx.beginPath(); ctx.arc(relX, this.y - 60, 60 + flicker/2, 0, Math.PI * 2); ctx.fill();
       
-      ctx.fillStyle = isInvulnerable ? '#fff' : (this.isEnraged ? '#ff0000' : '#ff2200');
+      ctx.fillStyle = isInvulnerable ? '#fff' : '#ff2200';
       for(let i=0; i<5; i++) {
           ctx.beginPath();
           ctx.moveTo(relX - 40 + i*20, this.y - 110);

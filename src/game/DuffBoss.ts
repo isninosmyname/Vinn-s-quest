@@ -60,7 +60,10 @@ export class DuffBoss {
         this.timer += dt; this.animTimer += dt;
         const alive = players.filter(p => p.health > 0);
         if (this.phase === 'WAITING') {
-            if (alive.some(p => p.x >= this.machineStart + 25)) { this.phase = 'INTRO'; this.timer = 0; }
+            if (alive.some(p => p.x >= this.machineStart + 25)) {
+                players.forEach(p => p.restoreHealth());
+                this.phase = 'INTRO'; this.timer = 0;
+            }
             return;
         }
         if (this.phase === 'INTRO') return;

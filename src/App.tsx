@@ -7,17 +7,26 @@ import type { BossType } from './game/Boss';
 import { IntroCutscene, World1ClearCutscene, World2ClearCutscene, World3BossCutscene, World3EscapeCutscene } from './game/Cutscene';
 import { EndingCutscene } from './game/EndingCutscene';
 import { MusicManager } from './game/SoundEngine';
+import { RecordedMusic, selectRecordedMusic } from './game/RecordedMusic';
 import { useGameLoop } from './game/useGameLoop';
 import { World1Map } from './game/WorldMap';
+import { WorldMapTransition } from './game/WorldMapTransition';
+import { VOLCANO_LEVELS, drawVolcanoWorld } from './game/VolcanoWorld';
+import { VOLCANO_GUIDES, bossName } from './game/VolcanoText';
+import { VolcanoEmblem } from './game/VolcanoEmblem';
+import { clearBossArena } from './game/BossArena';
 import { DuffBoss } from './game/DuffBoss';
 import { ForestEncounter } from './game/ForestEncounter';
-import { FOREST_LEVELS, FOREST_BUSHES, FOREST_LETTERS, DUFF_ARENA, FOREST_NAMES, drawForestWorld, drawBush, drawQueenPaper } from './game/ForestWorld';
+import { FOREST_LEVELS, FOREST_BUSHES, FOREST_LETTERS, DUFF_ARENA, drawForestWorld, drawBush, drawQueenPaper } from './game/ForestWorld';
 import { drawVictory } from './game/Victory';
 import grasslandsUrl from '../Grasslands.mp3?url';
 import winningUrl from '../Winning.MP3?url';
 import mapMusicUrl from '../Map.mp3?url';
+import volcanoMusicUrl from '../Volcano _land.mp3?url';
+import smallBossMusicUrl from '../small_boss.mp3?url';
+import bigBossMusicUrl from '../Big_Boss.mp3?url';
 
-import { FOREST_NAMES_ES, FOREST_LETTERS_ES } from './game/ForestText';
+import { FOREST_LETTERS_ES } from './game/ForestText';
 type WorldTheme = 'FOREST' | 'VOLCANO' | 'PAINT_LAND';
 
 const GAME_WIDTH = 1000;
@@ -60,16 +69,7 @@ const WORLD_CONFIGS: Record<number, WorldConfig> = {
         theme: 'FOREST',
         levels: FOREST_LEVELS
     },
-    2: {
-        theme: 'VOLCANO',
-        levels: [
-            { length: 2800, enemies: [{ x: 1000, type: 'TECH' }, { x: 1800, type: 'NORMAL' }], platforms: [{ x: 0, y: 460, w: 400 }, { x: 600, y: 400, w: 200 }, { x: 1000, y: 350, w: 200 }, { x: 1400, y: 300, w: 200 }, { x: 1800, y: 460, w: 1000 }], items: [] },
-            { length: 3200, enemies: [{ x: 1200, type: 'NORMAL' }, { x: 2200, type: 'NORMAL' }], platforms: [{ x: 0, y: 460, w: 600 }, { x: 800, y: 400, w: 100, type: 'MUSHROOM' }, { x: 1100, y: 300, w: 300 }, { x: 1600, y: 250, w: 100, type: 'MUSHROOM' }, { x: 1900, y: 460, w: 1300 }], items: [] },
-            { length: 4000, enemies: [{ x: 1200, type: 'TECH' }, { x: 2000, type: 'NORMAL' }, { x: 3200, type: 'NORMAL' }], platforms: [{ x: 0, y: 460, w: 1000 }, { x: 1200, y: 350, w: 300 }, { x: 1700, y: 250, w: 200 }, { x: 2200, y: 400, w: 100 }, { x: 2500, y: 300, w: 100, type: 'MUSHROOM' }, { x: 2800, y: 460, w: 1200 }], items: [] },
-            { length: 3600, enemies: [{ x: 1000, type: 'NORMAL' }, { x: 2500, type: 'NORMAL' }], platforms: [{ x: 0, y: 460, w: 800 }, { x: 1000, y: 300, w: 400 }, { x: 1600, y: 200, w: 400 }, { x: 2200, y: 400, w: 200 }, { x: 2600, y: 460, w: 1000 }], items: [] },
-            { length: 1600, enemies: [], platforms: [{ x: 0, y: 460, w: 1600 }], isBoss: true, bossType: 'BLAZE_KING' }
-        ]
-    },
+    2: { theme: 'VOLCANO', levels: VOLCANO_LEVELS },
     3: {
         theme: 'PAINT_LAND',
         levels: [
@@ -144,7 +144,7 @@ type MinigameState = typeof MINIGAME_CONFIGS[number]['id'];
 function App() {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const [tutorialPhase, setTutorialPhase] = useState(0);
-    const [gameState, setGameState] = useState<'START_MENU' | 'SETTINGS' | 'WORLD_MAP' | 'LEVEL_SELECTOR' | 'INTRO_CUTSCENE' | 'TUTORIAL' | 'PLAYING' | 'BOSS_VS_CUTSCENE' | 'INK_BOSS_INTRO' | 'GAMEOVER' | 'LEVEL_TRANSITION' | 'WORLD_COMPLETE' | 'ENDING_CUTSCENE' | 'WORLD1_INTERLUDE' | 'WORLD2_INTERLUDE' | 'WORLD3_BOSS_INTRO' | 'WORLD3_ESCAPE_CUTSCENE' | 'GAME_WON' | 'BOSS_GUIDE' | 'MINIGAME_SELECTOR' | 'MG_MUSHROOM_JUMP' | 'MG_STONE_SMASH' | 'MG_ESCAPE' | 'MG_GAMEOVER'>('START_MENU');
+    const [gameState, setGameState] = useState<'START_MENU' | 'SETTINGS' | 'WORLD_MAP' | 'WORLD_MAP_TRANSITION' | 'LEVEL_SELECTOR' | 'INTRO_CUTSCENE' | 'TUTORIAL' | 'PLAYING' | 'BOSS_VS_CUTSCENE' | 'INK_BOSS_INTRO' | 'GAMEOVER' | 'LEVEL_TRANSITION' | 'WORLD_COMPLETE' | 'ENDING_CUTSCENE' | 'WORLD1_INTERLUDE' | 'WORLD2_INTERLUDE' | 'WORLD3_BOSS_INTRO' | 'WORLD3_ESCAPE_CUTSCENE' | 'GAME_WON' | 'BOSS_GUIDE' | 'MINIGAME_SELECTOR' | 'MG_MUSHROOM_JUMP' | 'MG_STONE_SMASH' | 'MG_ESCAPE' | 'MG_GAMEOVER'>('START_MENU');
     const [guideStep, setGuideStep] = useState(0);
     const [mgScore, setMgScore] = useState(0);
     const [mgHighScores, setMgHighScores] = useState<{ mushroom: number, stone: number, escape: number }>(() => {
@@ -152,13 +152,21 @@ function App() {
         return saved ? JSON.parse(saved) : { mushroom: 0, stone: 0, escape: 0 };
     });
     const [language, setLanguage] = useState<'en' | 'es'>(() => (localStorage.getItem('vinns_quest_lang') as 'en' | 'es') || 'en');
+    const bossGuides: typeof BOSS_GUIDES = { ...BOSS_GUIDES, ...VOLCANO_GUIDES[language] };
     const [vinnColor, setVinnColor] = useState(() => localStorage.getItem('vinns_quest_color') || '#00f2ff');
     const [vinn2Color, setVinn2Color] = useState(() => localStorage.getItem('vinns_quest_color2') || '#ff00ff');
     const [isTwoPlayer, setIsTwoPlayer] = useState(() => localStorage.getItem('vinns_quest_2p') === 'true');
 
     const vinnRef = useRef<Vinn>(new Vinn(100, 420, vinnColor, 'NORMAL', 'Vinn'));
     const vinn2Ref = useRef<Vinn>(new Vinn(150, 420, vinn2Color, 'SPIKY', 'Jhon'));
+    const [displayHealth, setDisplayHealth] = useState<[number, number]>([vinnRef.current.health, vinn2Ref.current.health]);
     const mapRef = useRef(new World1Map());
+    const mapTransitionRef = useRef<WorldMapTransition | null>(null);
+    const [completedVolcano, setCompletedVolcano] = useState<number[]>(() => {
+        try { const value = JSON.parse(localStorage.getItem('vinns_quest_volcano_clears') || '[]'); return Array.isArray(value) ? value.filter((n: unknown) => typeof n === 'number' && n >= 1 && n <= 10) : []; }
+        catch { return []; }
+    });
+    const [volcanoIntroSeen, setVolcanoIntroSeen] = useState(() => localStorage.getItem('vinns_quest_volcano_intro_seen') === 'true');
     const duffRef = useRef<DuffBoss | null>(null);
     const roomRef = useRef<ForestEncounter | null>(null);
     const [mapSelected, setMapSelected] = useState(1);
@@ -170,7 +178,7 @@ function App() {
     const sceneryTime = useRef(0);
     const victoryTime = useRef(0);
     const [victoryStyle, setVictoryStyle] = useState(0);
-    const recordedAudio = useRef<{ forest: HTMLAudioElement; victory: HTMLAudioElement; map: HTMLAudioElement } | null>(null);
+    const recordedAudio = useRef<RecordedMusic | null>(null);
     const platformsRef = useRef<Platform[]>([]);
     const queenPosRef = useRef({ x: 0, y: 0 });
     const currentMgRef = useRef<string | null>(null);
@@ -258,45 +266,47 @@ function App() {
     useEffect(() => {
         localStorage.setItem('vinns_quest_forest_clears', JSON.stringify(completedForest));
     }, [completedForest]);
+    useEffect(() => { localStorage.setItem('vinns_quest_volcano_clears', JSON.stringify(completedVolcano)); }, [completedVolcano]);
+    useEffect(() => { localStorage.setItem('vinns_quest_volcano_intro_seen', String(volcanoIntroSeen)); }, [volcanoIntroSeen]);
 
     useEffect(() => {
-        const forest = new Audio(grasslandsUrl), victory = new Audio(winningUrl), map = new Audio(mapMusicUrl);
-        forest.loop = true; forest.volume = 0.45; victory.loop = false; victory.volume = 0.55;
-        map.loop = true; map.volume = 0.45;
-        recordedAudio.current = { forest, victory, map };
-        const resumeAudio = () => {
-            for (const track of [forest, victory, map]) if (track.dataset.active === 'true' && !track.ended) void track.play().catch(() => {});
-        };
+        const audio = new RecordedMusic({ forest: grasslandsUrl, victory: winningUrl, map: mapMusicUrl,
+            volcano: volcanoMusicUrl, smallBoss: smallBossMusicUrl, bigBoss: bigBossMusicUrl });
+        recordedAudio.current = audio;
+        const resumeAudio = () => audio.resume();
         window.addEventListener('pointerdown', resumeAudio);
         window.addEventListener('keydown', resumeAudio);
-        return () => { forest.pause(); victory.pause(); map.pause(); window.removeEventListener('pointerdown', resumeAudio); window.removeEventListener('keydown', resumeAudio); };
+        return () => { audio.dispose(); recordedAudio.current = null; window.removeEventListener('pointerdown', resumeAudio); window.removeEventListener('keydown', resumeAudio); };
     }, []);
     useEffect(() => {
-        const audio = recordedAudio.current; if (!audio) return;
-        const forestActive = (currentWorld === 1 && gameState === 'PLAYING') || gameState === 'TUTORIAL';
-        const victoryActive = currentWorld === 1 && gameState === 'LEVEL_TRANSITION';
-        for (const [track, active] of [[audio.forest, forestActive], [audio.victory, victoryActive], [audio.map, gameState === 'WORLD_MAP']] as const) {
-            track.dataset.active = String(active);
-            if (active) { musicRef.current.stop(); void track.play().catch(() => {}); }
-            else { track.pause(); if (track === audio.victory) track.currentTime = 0; }
-        }
         if (gameState === 'START_MENU' || gameState === 'GAMEOVER') musicRef.current.stop();
-    }, [gameState, currentWorld]);
+    }, [gameState]);
 
-    const openWorldMap = (level = 1) => {
-        const unlocked = unlockedProgress.world > 1 ? 8 : Math.max(unlockedProgress.level, ...completedForest.map(n => Math.min(8, n + 1)));
-        mapRef.current.open(level, unlocked, completedForest);
+    const openWorldMap = (level = 1, mapWorld: 1 | 2 = 1) => {
+        const completed = mapWorld === 1 ? completedForest : completedVolcano;
+        const count = WORLD_CONFIGS[mapWorld].levels.length;
+        const unlocked = unlockedProgress.world > mapWorld ? count : Math.max(1, unlockedProgress.world === mapWorld ? unlockedProgress.level : 1, ...completed.map(n => Math.min(count, n + 1)));
+        mapRef.current = new World1Map(mapWorld);
+        mapRef.current.open(level, unlocked, completed);
         setMapSelected(mapRef.current.selectedLevel);
         setKeys({}); mobileKeysRef.current = {};
-        setCurrentWorld(1); setGameState('WORLD_MAP');
+        setCurrentWorld(mapWorld); setCurrentLevel(mapRef.current.selectedLevel); setGameState('WORLD_MAP');
+    };
+    const enterMapLevel = () => loadLevel(mapRef.current.world, mapRef.current.selectedLevel);
+    const travelToVolcano = () => {
+        mapTransitionRef.current = new WorldMapTransition(completedForest);
+        setKeys({}); mobileKeysRef.current = {};
+        setUnlockedProgress(prev => prev.world < 2 ? { world: 2, level: 1 } : prev);
+        setGameState('WORLD_MAP_TRANSITION');
     };
     const changeMapSelection = (direction: -1 | 1) => {
         mapRef.current.moveSelection(direction); setMapSelected(mapRef.current.selectedLevel);
     };
-    const beginForestVictory = () => {
+    const beginWorldVictory = () => {
         victoryTime.current = 0; setVictoryStyle((currentLevel - 1) % 3);
-        setCompletedForest(prev => prev.includes(currentLevel) ? prev : [...prev, currentLevel]);
-        setUnlockedProgress(prev => prev.world === 1 ? { world: 1, level: Math.max(prev.level, Math.min(8, currentLevel + 1)) } : prev);
+        const saveClear = currentWorld === 1 ? setCompletedForest : setCompletedVolcano;
+        saveClear(prev => prev.includes(currentLevel) ? prev : [...prev, currentLevel]);
+        setUnlockedProgress(prev => prev.world === currentWorld ? { world: currentWorld, level: Math.max(prev.level, Math.min(WORLD_CONFIGS[currentWorld].levels.length, currentLevel + 1)) } : prev);
         setKeys({}); mobileKeysRef.current = {};
         setGameState('LEVEL_TRANSITION');
     };
@@ -349,9 +359,10 @@ function App() {
                 if (e.repeat) return;
                 if (k === 'arrowleft' || k === 'a') changeMapSelection(-1);
                 if (k === 'arrowright' || k === 'd') changeMapSelection(1);
-                if (k === ' ' || k === 'enter') loadLevel(1, mapRef.current.selectedLevel);
+                if (k === ' ' || k === 'enter') enterMapLevel();
                 return;
             }
+            if (gameState === 'WORLD_MAP_TRANSITION') return;
             if (noteRef.current) { if (k === 'e' || k === 'escape') noteRef.current = null; return; }
             if (gameState === 'PLAYING' && (k === ' ' || k === 'e') && (roomRef.current?.frozen || duffRef.current?.frozen)) {
                 if (!e.repeat) advanceCutscene(); return;
@@ -408,7 +419,7 @@ function App() {
             window.removeEventListener('mousemove', handleMouseMove);
             window.removeEventListener('mousedown', handleMouseDown);
         };
-    }, [gameState, currentWorld, currentLevel, isTwoPlayer, completedForest, unlockedProgress, language]);
+    }, [gameState, currentWorld, currentLevel, isTwoPlayer, completedForest, completedVolcano, volcanoIntroSeen, unlockedProgress, language]);
 
     const createEnemyOnPlatform = (x: number, type: LevelEnemyType, platforms: Platform[]) => {
         const enemyType: EnemyType = type === 'NORMAL' ? 'REGULAR' : type;
@@ -443,6 +454,11 @@ function App() {
     };
 
     const loadLevel = (worldIndex: number, levelIndex: number) => {
+        if (worldIndex === 2 && levelIndex === 1 && !volcanoIntroSeen && gameState !== 'WORLD1_INTERLUDE') {
+            interlude1Ref.current = new World1ClearCutscene(); interlude1Ref.current.setLanguage(language);
+            setCurrentWorld(2); setCurrentLevel(1); setKeys({}); mobileKeysRef.current = {};
+            setGameState('WORLD1_INTERLUDE'); return;
+        }
         const world = WORLD_CONFIGS[worldIndex];
         if (!world) { setGameState('GAME_WON'); return; }
         const config = world.levels[levelIndex - 1];
@@ -679,6 +695,14 @@ function App() {
     };
 
     useGameLoop((dt: number) => {
+        // Encounter phases live in refs, so select music every frame, not just on React state changes.
+        const recordedTrack = selectRecordedMusic({ state: gameState, world: currentWorld,
+            room: roomRef.current, duff: duffRef.current, boss: bossRef.current });
+        if (recordedAudio.current?.setTrack(recordedTrack) && recordedTrack) musicRef.current.stop();
+        // Health changes happen outside keyboard events, including idle healing.
+        if (displayHealth[0] !== vinnRef.current.health || displayHealth[1] !== vinn2Ref.current.health) {
+            setDisplayHealth([vinnRef.current.health, vinn2Ref.current.health]);
+        }
         const mergedKeys = { ...keys, ...mobileKeysRef.current };
         const canvas = canvasRef.current;
         if (!canvas) return;
@@ -710,7 +734,13 @@ function App() {
         const levelConfig = world.levels[currentLevel - 1];
         sceneryTime.current += dt;
         if (gameState === 'WORLD_MAP') { mapRef.current.update(dt); mapRef.current.draw(ctx, language); return; }
-        if (gameState === 'LEVEL_TRANSITION' && currentWorld === 1) {
+        if (gameState === 'WORLD_MAP_TRANSITION' && mapTransitionRef.current) {
+            const finished = mapTransitionRef.current.update(dt);
+            mapTransitionRef.current.draw(ctx, language);
+            if (finished) { mapTransitionRef.current = null; openWorldMap(1, 2); }
+            return;
+        }
+        if (gameState === 'LEVEL_TRANSITION' && currentWorld <= 2) {
             victoryTime.current += dt; drawVictory(ctx, victoryTime.current, victoryStyle, vinnColor, language); return;
         }
         if (noteRef.current) { drawQueenPaper(ctx, noteRef.current, language); return; }
@@ -722,11 +752,12 @@ function App() {
             if (room.entryReady) {
                 room.entryReady = false;
                 roomPlayers.forEach((p, i) => {
+                    p.restoreHealth();
                     p.x = room.start + 140 + i * 50; p.y = 430; p.vx = 0; p.vy = 0;
                     p.onGround = true; p.state = 'IDLE'; p.isCrouching = false;
                     p.lastSafeX = p.x; p.lastSafeY = p.y;
                 });
-                enemiesRef.current = room.bear ? [room.bear] : [];
+                clearBossArena(enemiesRef, [fireFlamesRef, bossProjectilesRef, inkProjectilesRef], room.bear);
                 bossRef.current = room.boss;
                 itemsRef.current = []; rocksRef.current = []; particlesRef.current = [];
                 cameraXRef.current = room.start;
@@ -745,7 +776,6 @@ function App() {
             : (gameState === 'TUTORIAL' ? tutorialPlatforms : worldPlatforms);
         const activeLength = gameState === 'TUTORIAL' ? 1600 : levelConfig.length;
         const anyAiming = vinnRef.current.state === 'AIMING' || vinn2Ref.current.state === 'AIMING';
-        const isBlazeAngry = bossRef.current && bossRef.current.type === 'BLAZE_KING' && bossRef.current.state === 'ANGRY_TRANSITION';
 
         let anyAlive = vinnRef.current.health > 0 || (isTwoPlayer && vinn2Ref.current.health > 0);
         let leadX = isTwoPlayer ? Math.max(vinnRef.current.x, vinn2Ref.current.x) : vinnRef.current.x;
@@ -763,11 +793,22 @@ function App() {
             let minX = 50;
             if (room?.inside) minX = room.start + 35;
             if (duff?.active && duff.phase !== 'DEFEATED') minX = duff.machineStart + 40;
+            if (bossRef.current?.volcano && bossRef.current.introPlayed && bossRef.current.health > 0) minX = activeLength - 930;
 
             // BOSS VS Trigger
             const boss = bossRef.current;
             const shouldTriggerVS = !room && gameState === 'PLAYING' && levelConfig.isBoss && leadX > activeLength - 950 && boss !== null && !boss.introPlayed;
             if (shouldTriggerVS && boss) {
+                roomPlayers.forEach(p => p.restoreHealth());
+                clearBossArena(enemiesRef, [fireFlamesRef, bossProjectilesRef, inkProjectilesRef]);
+                if (boss.volcano) {
+                    // Bring both players into the arena before sealing the entrance.
+                    roomPlayers.forEach((p, i) => {
+                        p.x = Math.max(p.x, activeLength - 900 + i * 45);
+                        p.y = 430; p.vx = 0; p.vy = 0; p.onGround = true;
+                        p.state = 'IDLE'; p.lastSafeX = p.x; p.lastSafeY = p.y;
+                    });
+                }
                 boss.introPlayed = true;
                 if (boss.type !== 'INK_COLOSSUS') {
                     setGameState('BOSS_VS_CUTSCENE');
@@ -795,14 +836,14 @@ function App() {
 
 
             // P1 Update
-            const isFrozen = castleSequenceRef.current.active || isBlazeAngry || duff?.frozen || room?.frozen;
+            const isFrozen = castleSequenceRef.current.active || duff?.frozen || room?.frozen;
             const inputKeys = isFrozen ? {} : autoRunKeys;
             if (!duff?.frozen && !room?.frozen) vinnRef.current.update(dt, inputKeys, activeLength - 50, activePlatforms, gameState === 'TUTORIAL' ? 0.7 : 1.0, minX);
-            if (inkChase && !anyAiming && !isBlazeAngry) {
+            if (inkChase && !anyAiming) {
                 if (isAutoHalted) {
                     vinnRef.current.vx = 0;
                 }
-            } else if (anyAiming || isBlazeAngry) {
+            } else if (anyAiming) {
                 vinnRef.current.vx = 0;
             }
 
@@ -811,7 +852,7 @@ function App() {
                 const iKeys: Record<string, boolean> = castleSequenceRef.current.active ? {} : {
                     'a': mergedKeys['arrowleft'], 'd': mergedKeys['arrowright'], ' ': mergedKeys['enter'], 'c': mergedKeys['arrowdown']
                 };
-                if (!isBlazeAngry && !duff?.frozen && !room?.frozen) {
+                if (!duff?.frozen && !room?.frozen) {
                     vinn2Ref.current.update(dt, iKeys, activeLength - 50, activePlatforms, 1.0, minX);
                     if (inkChase && !anyAiming) vinn2Ref.current.vx = Math.max(vinn2Ref.current.vx, 5.0);
                     else if (anyAiming) vinn2Ref.current.vx = 0;
@@ -828,7 +869,11 @@ function App() {
             }
 
             if (duff && gameState === 'PLAYING') {
+                const waitingForDuff = duff.phase === 'WAITING';
                 duff.update(dt, isTwoPlayer ? [vinnRef.current, vinn2Ref.current] : [vinnRef.current], !!mergedKeys['e']);
+                if (waitingForDuff && duff.phase !== 'WAITING') {
+                    clearBossArena(enemiesRef, [fireFlamesRef, bossProjectilesRef, inkProjectilesRef]);
+                }
                 if (duff.active && duff.phase !== 'DEFEATED') {
                     for (const player of [vinnRef.current, ...(isTwoPlayer ? [vinn2Ref.current] : [])]) {
                         player.x = Math.max(duff.machineStart + 40, Math.min(duff.machineEnd - 40, player.x));
@@ -1117,10 +1162,8 @@ function App() {
             const finished = interlude1Ref.current.update(dt);
             musicRef.current.update((interlude1Ref.current as any).phase);
             if (finished === true) {
-                setCurrentWorld(2);
-                setCurrentLevel(1);
-                setUnlockedProgress(() => ({ world: 2, level: 1 }));
-                setGameState('LEVEL_SELECTOR');
+                setVolcanoIntroSeen(true);
+                loadLevel(2, 1);
             }
         } else if (gameState === 'WORLD2_INTERLUDE' && interlude2Ref.current) {
             const finished = interlude2Ref.current.update(dt);
@@ -1128,7 +1171,7 @@ function App() {
             if (finished === true) {
                 setCurrentWorld(3);
                 setCurrentLevel(1);
-                setUnlockedProgress(() => ({ world: 3, level: 1 }));
+                setUnlockedProgress(prev => prev.world < 3 ? { world: 3, level: 1 } : prev);
                 setGameState('LEVEL_SELECTOR');
             }
         } else if (gameState === 'WORLD3_BOSS_INTRO' && interlude3Ref.current) {
@@ -1173,24 +1216,8 @@ function App() {
             }
         }
 
-        // Separate music logic so it doesn't block state updates
-        if (gameState === 'PLAYING') {
-            const isBossActive = levelConfig.isBoss && bossRef.current?.state && bossRef.current.state !== 'DEFEATED';
-            
-            if (isBossActive && bossRef.current && currentWorld !== 1) {
-                const healthPercent = bossRef.current.health / bossRef.current.maxHealth;
-                if ((musicRef.current as any).setIntensity) {
-                    musicRef.current.setIntensity(healthPercent);
-                }
-                musicRef.current.update('BOSS_BATTLE');
-            } else if (currentWorld === 1) {
-                // Recorded Grasslands track is managed by the audio effect.
-            } else if (currentWorld === 2) {
-                musicRef.current.update('VOLCANO_WORLD');
-            } else if (currentWorld === 3) {
-                musicRef.current.update('PAINT_WORLD');
-            }
-        }
+        // Recorded exploration/boss music replaces synthesized tracks, never layers over them.
+        if (gameState === 'PLAYING' && !recordedTrack && currentWorld === 3) musicRef.current.update('PAINT_WORLD');
 
         if (gameState === 'TUTORIAL') {
             // The tutorial uses the recorded Grasslands track.
@@ -1224,32 +1251,19 @@ function App() {
                 }
             }
         } else if (gameState === 'PLAYING') {
-            if (vinnRef.current.x >= levelConfig.length - 100 && currentWorld === 1 &&
+            if (vinnRef.current.x >= levelConfig.length - 100 && currentWorld <= 2 &&
                 (!duff || duff.phase === 'DEFEATED') && (!room || room.cleared) && (!bossRef.current || bossRef.current.health <= 0)) {
-                beginForestVictory();
-            } else if (vinnRef.current.x >= levelConfig.length - 100 && currentWorld !== 1) {
+                beginWorldVictory();
+            } else if (vinnRef.current.x >= levelConfig.length - 100 && currentWorld === 3) {
                 if (!levelConfig.isBoss) {
                     if (currentWorld === 3 && currentLevel === 4) {
                         // Handled by castle sequence timer.
-                    } else if (currentLevel < 5) {
+                    } else if (currentLevel < world.levels.length) {
                         setGameState('LEVEL_TRANSITION');
                     }
-                } else if (bossRef.current && bossRef.current.health <= 0) {
-                    if (currentWorld === 1 && currentLevel === 8) {
-                        interlude1Ref.current = new World1ClearCutscene();
-                        interlude1Ref.current.setLanguage(language);
-                        setGameState('WORLD1_INTERLUDE');
-                    } else if (currentWorld === 2 && currentLevel === 5) {
-                        interlude2Ref.current = new World2ClearCutscene();
-                        interlude2Ref.current.setLanguage(language);
-                        setGameState('WORLD2_INTERLUDE');
-                    } else if (currentWorld < 3) {
-                        setGameState('WORLD_COMPLETE');
-                    } else if (currentWorld === 3 && currentLevel === 5) {
-                        // World 3 Boss has a custom transition handled below (Chase -> Escape -> Ending)
-                    } else {
-                        setGameState('ENDING_CUTSCENE');
-                    }
+                } else if (bossRef.current && bossRef.current.health <= 0 && currentLevel !== 5) {
+                    // World 3 level 5 has its own chase → escape → ending flow.
+                    setGameState('ENDING_CUTSCENE');
                 }
             }
 
@@ -1368,14 +1382,10 @@ function App() {
                     if (bossRef.current.type === 'INK_COLOSSUS' && inkIntroTimerRef.current < 1.0) {
                         // Boss stands still waiting for the 1 sec intro
                     } else {
-                        if (!isBlazeAngry) {
-                            bossRef.current.update(dt, bTargetX);
-                        } else {
-                            // Focus on boss, slow its own animation slightly
-                            bossRef.current.update(dt * 0.4, bTargetX);
-                            cameraShakeRef.current = Math.max(cameraShakeRef.current, 2);
-                        }
+                        bossRef.current.update(dt, bTargetX);
                     }
+                    bossRef.current.volcano?.hitPlayers(roomPlayers);
+                    if (bossRef.current.volcano && (bossRef.current.health <= 0 || bossRef.current.state.startsWith('VOLCANO_'))) bossProjectilesRef.current = [];
                     if (bossRef.current.type === 'BLAZE_KING') {
                         if (bossRef.current.state === 'RAINING_FIRE' && bossRef.current.rainReady) {
                             bossRef.current.rainReady = false;
@@ -1402,7 +1412,7 @@ function App() {
                             spawnParticles(enemy.x, enemy.y);
                         }
                     });
-                    if (bossRef.current && Math.abs(vinnRef.current.x - bossRef.current.x) < 120) {
+                    if (bossRef.current && Math.abs(vinnRef.current.x - bossRef.current.x) < 120 && (!bossRef.current.volcano || Math.abs(vinnRef.current.y - bossRef.current.y) < 95)) {
                         if (bossRef.current.type !== 'GOLEM' || bossRef.current.state === 'STUNNED') {
                             const isDizzy = bossRef.current.state === 'DIZZY';
                             const bossHitDamage = (bossRef.current.state === 'STUNNED' || isDizzy) ? (isDizzy ? 10 : 3) : 1;
@@ -1420,7 +1430,7 @@ function App() {
                             spawnParticles(enemy.x, enemy.y);
                         }
                     });
-                    if (bossRef.current && Math.abs(vinn2Ref.current.x - bossRef.current.x) < 120) {
+                    if (bossRef.current && Math.abs(vinn2Ref.current.x - bossRef.current.x) < 120 && (!bossRef.current.volcano || Math.abs(vinn2Ref.current.y - bossRef.current.y) < 95)) {
                         if (bossRef.current.type !== 'GOLEM' || bossRef.current.state === 'STUNNED') {
                             const isDizzy = bossRef.current.state === 'DIZZY';
                             const bossHitDamage = (bossRef.current.state === 'STUNNED' || isDizzy) ? (isDizzy ? 10 : 3) : 1;
@@ -1523,16 +1533,16 @@ function App() {
                 }
 
                 // Boss collision with players (still active but movement frozen if anyAiming)
-                if (bossRef.current) {
+                if (bossRef.current && bossRef.current.type !== 'LIVING_VOLCANO' && bossRef.current.state !== 'IDLE' && !bossRef.current.state.startsWith('VOLCANO_')) {
                     const boss = bossRef.current;
                     const dx = Math.abs(boss.x - vinnRef.current.x);
                     const dy = Math.abs(boss.y - vinnRef.current.y);
                     if (boss.health > 0 && dx < 100 && dy < 100) {
-                        const isAttacking = boss.state === 'ATTACKING';
+                        const isAttacking = boss.state === 'ATTACKING' || boss.state === 'CRUSHING';
                         const isPlummeting = boss.state === 'FALLING';
                         const attackActive = boss.type === 'GOLEM' ? isPlummeting :
                             (boss.type === 'BLAZE_KING' ? isAttacking : (boss.type === 'INK_COLOSSUS' ? boss.state === 'CHASING' : true));
-                        const isStunned = boss.state === 'STUNNED' || boss.state === 'WAKING' || boss.state === 'BOMB_STUNNED' || boss.state === 'DEFEATED';
+                        const isStunned = boss.state === 'STUNNED' || boss.state === 'DIZZY' || boss.state === 'WAKING' || boss.state === 'BOMB_STUNNED' || boss.state === 'DEFEATED';
 
                         if (!isStunned && (attackActive || dx < 60)) {
                             const dir = vinnRef.current.x > boss.x ? 1 : -1;
@@ -1546,11 +1556,11 @@ function App() {
                         const dx2 = Math.abs(boss.x - vinn2Ref.current.x);
                         const dy2 = Math.abs(boss.y - vinn2Ref.current.y);
                         if (dx2 < 100 && dy2 < 100) {
-                            const isAttacking = boss.state === 'ATTACKING';
+                            const isAttacking = boss.state === 'ATTACKING' || boss.state === 'CRUSHING';
                             const isPlummeting = boss.state === 'FALLING';
                             const attackActive = boss.type === 'GOLEM' ? isPlummeting :
                                 (boss.type === 'BLAZE_KING' ? isAttacking : (boss.type === 'INK_COLOSSUS' ? boss.state === 'CHASING' : true));
-                            const isStunned = boss.state === 'STUNNED' || boss.state === 'WAKING' || boss.state === 'BOMB_STUNNED' || boss.state === 'DEFEATED';
+                            const isStunned = boss.state === 'STUNNED' || boss.state === 'DIZZY' || boss.state === 'WAKING' || boss.state === 'BOMB_STUNNED' || boss.state === 'DEFEATED';
 
                             if (!isStunned && (attackActive || dx2 < 60)) {
                                 const dir = vinn2Ref.current.x > boss.x ? 1 : -1;
@@ -1767,11 +1777,7 @@ function App() {
             else drawForestWorld(ctx, camX, gameState === 'TUTORIAL' ? 1 : currentLevel, sceneryTime.current, language);
         }
         else if (currentTheme === 'VOLCANO') {
-            const grad = ctx.createLinearGradient(0, 0, 0, 500);
-            grad.addColorStop(0, '#2b0a0a');
-            grad.addColorStop(1, '#000');
-            ctx.fillStyle = grad;
-            ctx.fillRect(-50, -50, GAME_WIDTH + 100, GAME_HEIGHT + 100);
+            drawVolcanoWorld(ctx, camX, currentLevel, sceneryTime.current);
         }
         else {
             ctx.fillStyle = '#1a1a2e';
@@ -1801,6 +1807,8 @@ function App() {
                 ctx.fillStyle = '#1a0505';
             }
         }
+
+        if (currentTheme === 'VOLCANO') bossRef.current?.volcano?.drawBackground(ctx, camX, bossRef.current.health <= 0);
 
         if (gameState === 'TUTORIAL') {
             ctx.fillStyle = 'rgba(255,255,255,0.1)';
@@ -2110,38 +2118,17 @@ function App() {
             ctx.fillStyle = '#ff4500'; ctx.globalAlpha = 0.5; ctx.fillRect(0, 480, 800, 20); ctx.globalAlpha = 1.0;
         }
 
-        // uses isBlazeAngry defined earlier in scope
-        if (isBlazeAngry && bossRef.current) {
-            const b = bossRef.current;
-            const bTimer = b.angryTransitionTimer;
-            
-            // Red Flash overlay
-            if (bTimer > 0.5) {
-                ctx.fillStyle = 'rgba(255, 0, 0, 0.2)';
-                ctx.fillRect(0, 0, 800, 500);
-            }
-
-            // Smoke from ears (left/right of head area)
-            if (bTimer > 0.2 && bTimer < 2.5) {
-                for(let i=0; i<2; i++) {
-                    const side = i === 0 ? -1 : 1;
-                    spawnParticles(b.x + side * 40, b.y - 120, '#666');
-                }
-            }
-
-            // Focus Label
-            ctx.fillStyle = '#fff';
-            ctx.font = 'bold 24px "Press Start 2P"';
-            ctx.textAlign = 'center';
-            ctx.shadowBlur = 20;
-            ctx.shadowColor = '#f00';
-            if (bTimer > 1.0) {
-                ctx.fillText("ENRAGED!", 400, 150);
-            }
-            ctx.shadowBlur = 0;
-        }
+        if (gameState === 'PLAYING') bossRef.current?.volcano?.drawHazards(ctx, camX, language);
 
         vinnRef.current.draw(ctx, camX, camY);
+        if (['PLAYING', 'TUTORIAL'].includes(gameState)) {
+            roomPlayers.forEach(p => {
+                if (p.restTimer >= 5 && p.health < p.maxHealth) {
+                    ctx.save(); ctx.fillStyle = '#a5efaa'; ctx.font = '14px monospace'; ctx.textAlign = 'center';
+                    ctx.fillText(language === 'en' ? '+1 HP / sec' : '+1 PV / seg', p.x - camX, p.y - camY - 95); ctx.restore();
+                }
+            });
+        }
         if (vinnRef.current.doubleJumpTimer > 0) {
             ctx.save(); ctx.fillStyle = '#19352b'; ctx.fillRect(15, 65, 210, 30); ctx.fillStyle = '#d5f4d4';
             ctx.font = '16px monospace'; ctx.textAlign = 'left'; ctx.fillText((language === 'en' ? 'DOUBLE JUMP: ' : 'DOBLE SALTO: ') + Math.ceil(vinnRef.current.doubleJumpTimer) + 's', 23, 86); ctx.restore();
@@ -2186,7 +2173,7 @@ function App() {
             ctx.fillStyle = '#ff2d55'; ctx.fillRect(200, 20, barW * (bossRef.current.health / bossRef.current.maxHealth), barH);
             ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.strokeRect(200, 20, barW, barH);
             ctx.fillStyle = '#fff'; ctx.font = '10px "Press Start 2P"'; ctx.textAlign = 'center';
-            ctx.fillText(bossRef.current.type, 400, 55);
+            ctx.fillText(bossName(bossRef.current.type, language), 400, 55);
         }
 
 
@@ -2240,17 +2227,17 @@ function App() {
                             VINN'S QUEST {gameState !== 'TUTORIAL' && `- W${currentWorld}-L${currentLevel}`}
                         </h1>
                         <div className="health-bar">
-                            <div className="health-fill" style={{ width: `${Math.max(0, (vinnRef.current.health / vinnRef.current.maxHealth) * 100)}%` }}></div>
+                            <div className="health-fill" style={{ width: `${Math.max(0, (displayHealth[0] / vinnRef.current.maxHealth) * 100)}%` }}></div>
                         </div>
                         {isTwoPlayer && (
                             <div className="health-bar" style={{ marginTop: '5px', borderColor: vinn2Ref.current.color }}>
-                                <div className="health-fill" style={{ background: vinn2Ref.current.color, width: `${Math.max(0, (vinn2Ref.current.health / vinn2Ref.current.maxHealth) * 100)}%` }}></div>
+                                <div className="health-fill" style={{ background: vinn2Ref.current.color, width: `${Math.max(0, (displayHealth[1] / vinn2Ref.current.maxHealth) * 100)}%` }}></div>
                             </div>
                         )}
                         <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
                             <p style={{ fontFamily: 'var(--font-retro)', fontSize: '10px', marginTop: '5px' }}>
-                                P1: {Math.ceil(vinnRef.current.health)}/{vinnRef.current.maxHealth}
-                                {isTwoPlayer && ` | P2: ${Math.ceil(vinn2Ref.current.health)}/${vinn2Ref.current.maxHealth}`}
+                                P1: {Math.ceil(displayHealth[0])}/{vinnRef.current.maxHealth}
+                                {isTwoPlayer && ` | P2: ${Math.ceil(displayHealth[1])}/${vinn2Ref.current.maxHealth}`}
                             </p>
                             {vinnRef.current.hasDoubleJump && <span className="key-box" style={{ background: '#00f2ff', color: '#000' }}>{language === 'en' ? 'DOUBLE JUMP' : 'DOBLE SALTO'}</span>}
                             {false && false && (
@@ -2287,7 +2274,7 @@ function App() {
                                 <button 
                                     className="level-btn" 
                                     style={{ width: '280px', fontSize: '18px', borderColor: '#00f2ff', color: '#00f2ff' }}
-                                    onClick={() => unlockedProgress.world === 1 ? openWorldMap(unlockedProgress.level) : loadLevel(unlockedProgress.world, unlockedProgress.level)}
+                                    onClick={() => unlockedProgress.world <= 2 ? openWorldMap(unlockedProgress.level, unlockedProgress.world as 1 | 2) : loadLevel(unlockedProgress.world, unlockedProgress.level)}
                                 >
                                     {language === 'en' ? 'CONTINUE' : 'CONTINUAR'}
                                 </button>
@@ -2296,7 +2283,7 @@ function App() {
                                 className="level-btn" 
                                 style={{ width: '280px', fontSize: '18px' }}
                                 onClick={() => {
-                                    setUnlockedProgress({ world: 1, level: 1 }); setCompletedForest([]);
+                                    setUnlockedProgress({ world: 1, level: 1 }); setCompletedForest([]); setCompletedVolcano([]); setVolcanoIntroSeen(false);
                                     cutsceneRef.current.reset();
                                     setGameState('INTRO_CUTSCENE');
                                 }}
@@ -2327,7 +2314,7 @@ function App() {
                     <h1 style={{ color: '#ffcc00', marginTop: '50px' }}>{t('MINIGAMES')}</h1>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '20px', padding: '40px', maxWidth: '1000px' }}>
                         {MINIGAME_CONFIGS.map(mg => {
-                            const mgUnlocked = unlockedProgress.world > mg.world || (mg.world === 1 && completedForest.includes(8));
+                            const mgUnlocked = unlockedProgress.world > mg.world || (mg.world === 1 && completedForest.includes(8)) || (mg.world === 2 && completedVolcano.includes(10));
                             const scoreKey = mg.id === 'MG_MUSHROOM_JUMP' ? 'mushroom' : (mg.id === 'MG_STONE_SMASH' ? 'stone' : 'escape');
                             return (
                                 <div key={mg.id} 
@@ -2509,8 +2496,9 @@ function App() {
                             </div>
                             <div style={{ position: 'absolute', right: 0, top: 0, width: '50%', height: '100%', background: 'linear-gradient(-90deg, #2d3e12, transparent)', animation: 'slideLeft 0.5s ease-out forwards', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                 <div style={{ textAlign: 'center' }}>
-                                    <div style={{ fontFamily: 'var(--font-retro)', fontSize: '1.8rem', color: '#ffcc00', textShadow: '4px 4px 0 #000', lineHeight: '1.1' }}>THE</div>
-                                    <div style={{ fontFamily: 'var(--font-retro)', fontSize: '2.6rem', color: '#ffcc00', textShadow: '4px 4px 0 #000', fontWeight: '700', letterSpacing: '2px' }}>{bossRef.current?.type === 'BLAZE_KING' ? 'BLAZE KING' : bossRef.current?.type === 'INK_COLOSSUS' ? 'INK COLOSSUS' : 'GOLEM'}</div>
+                                    {bossRef.current?.volcano && <VolcanoEmblem king={bossRef.current.type === 'BLAZE_KING'} label={bossName(bossRef.current.type, language)} />}
+                                    <div style={{ fontFamily: 'var(--font-retro)', fontSize: '1.8rem', color: '#ffcc00', textShadow: '4px 4px 0 #000', lineHeight: '1.1' }}>{language === 'en' ? 'THE' : 'EL'}</div>
+                                    <div style={{ fontFamily: 'var(--font-retro)', fontSize: '2.2rem', color: '#ffcc00', textShadow: '4px 4px 0 #000', fontWeight: '700', letterSpacing: '2px' }}>{bossName(bossRef.current?.type || 'GOLEM', language)}</div>
                                 </div>
                             </div>
                             <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', animation: 'popIn 0.5s 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275) both', opacity: 0 }}>
@@ -2537,20 +2525,23 @@ function App() {
                     {gameState === 'WORLD_MAP' && (
                         <div className="map-actions">
                             <button onClick={() => changeMapSelection(-1)} disabled={mapSelected <= 1}>←</button>
-                            <button onClick={() => loadLevel(1, mapRef.current.selectedLevel)}>{language === 'en' ? 'ENTER' : 'ENTRAR'} {mapSelected}: {(language === 'en' ? FOREST_NAMES : FOREST_NAMES_ES)[mapSelected - 1]}</button>
+                            <button onClick={enterMapLevel}>{language === 'en' ? 'ENTER' : 'ENTRAR'} {mapSelected}: {mapRef.current.levelName(language, mapSelected)}</button>
                             <button onClick={() => changeMapSelection(1)} disabled={mapSelected >= mapRef.current.maxUnlocked}>→</button>
                             <button onClick={() => setGameState('START_MENU')}>MENU</button>
+                            {currentWorld === 1 && (completedForest.includes(8) || unlockedProgress.world > 1) && <button onClick={travelToVolcano}>{language === 'en' ? 'VOLCANO LAND →' : 'TIERRA VOLCÁNICA →'}</button>}
+                            {currentWorld === 2 && <button onClick={() => openWorldMap(8, 1)}>{language === 'en' ? '← FOREST' : '← BOSQUE'}</button>}
                         </div>
                     )}
                     {gameState === 'LEVEL_TRANSITION' && (
-                        <div className={currentWorld === 1 ? 'victory-actions' : 'tutorial-card'}>
+                        <div className={currentWorld <= 2 ? 'victory-actions' : 'tutorial-card'}>
                             <h2>{language === 'en' ? 'LEVEL CLEAR' : 'NIVEL SUPERADO'}</h2>
                             <button onClick={() => {
-                                if (currentWorld !== 1) loadLevel(currentWorld, currentLevel + 1);
-                                else if (currentLevel === 8) {
-                                    interlude1Ref.current = new World1ClearCutscene(); interlude1Ref.current.setLanguage(language); setGameState('WORLD1_INTERLUDE');
-                                } else openWorldMap(currentLevel + 1);
-                            }}>{currentWorld === 1 ? (language === 'en' ? 'CONTINUE' : 'CONTINUAR') : t('NEXT')}</button>
+                                if (currentWorld === 1 && currentLevel === 8) travelToVolcano();
+                                else if (currentWorld === 2 && currentLevel === 10) {
+                                    interlude2Ref.current = new World2ClearCutscene(); interlude2Ref.current.setLanguage(language); setGameState('WORLD2_INTERLUDE');
+                                } else if (currentWorld <= 2) openWorldMap(currentLevel + 1, currentWorld as 1 | 2);
+                                else loadLevel(currentWorld, currentLevel + 1);
+                            }}>{language === 'en' ? 'CONTINUE' : 'CONTINUAR'}</button>
                         </div>
                     )}
 
@@ -2659,34 +2650,36 @@ function App() {
                     alignItems: 'center', justifyContent: 'center', zIndex: 1000,
                     color: '#fff', textAlign: 'center', fontFamily: 'monospace'
                 }}>
-                    {BOSS_GUIDES[bossRef.current.type] && BOSS_GUIDES[bossRef.current.type][guideStep] && (
+                    {bossGuides[bossRef.current.type] && bossGuides[bossRef.current.type][guideStep] && (
                         <div style={{
                             backgroundColor: '#222', padding: 30, borderRadius: 15, border: '4px solid #555',
                             width: '60%', maxWidth: 600, display: 'flex', flexDirection: 'column', alignItems: 'center'
                         }}>
                             <h2 style={{ color: '#ffcc00', margin: '0 0 15px 0', fontSize: '28px' }}>
-                                {BOSS_GUIDES[bossRef.current.type][guideStep].title}
+                                {bossGuides[bossRef.current.type][guideStep].title}
                             </h2>
-                            {BOSS_GUIDES[bossRef.current.type][guideStep].img && (
+                            {bossRef.current.volcano && <VolcanoEmblem king={bossRef.current.type === 'BLAZE_KING'} label={bossName(bossRef.current.type, language)} />}
+                            {bossGuides[bossRef.current.type][guideStep].img && (
                                 <img
-                                    src={BOSS_GUIDES[bossRef.current.type][guideStep].img}
+                                    src={bossGuides[bossRef.current.type][guideStep].img}
                                     alt="Guide"
                                     style={{ width: '100%', height: 'auto', borderRadius: 8, marginBottom: 20, border: '2px solid #000' }}
                                 />
                             )}
                             <p style={{ fontSize: '18px', lineHeight: 1.5, marginBottom: 30, maxWidth: '90%' }}>
-                                {BOSS_GUIDES[bossRef.current.type][guideStep].text}
+                                {bossGuides[bossRef.current.type][guideStep].text}
                             </p>
 
                             <div style={{ display: 'flex', gap: 20 }}>
                                 <button
                                     onClick={() => {
                                         if (!bossRef.current) return;
-                                        const guideLen = BOSS_GUIDES[bossRef.current.type].length;
+                                        const guideLen = bossGuides[bossRef.current.type].length;
                                         if (guideStep + 1 >= guideLen) {
                                             setGameState('PLAYING');
                                             if (bossRef.current.type === 'GOLEM') bossRef.current.state = 'FLY_UP';
                                             else if (bossRef.current.type === 'BLAZE_KING') bossRef.current.state = 'WALKING';
+                                            else if (bossRef.current.type === 'LIVING_VOLCANO') bossRef.current.state = 'VOLCANO_ATTACK';
                                         } else {
                                             setGuideStep(prev => prev + 1);
                                         }
@@ -2696,12 +2689,12 @@ function App() {
                                         backgroundColor: '#ffcc00', color: '#000', border: 'none', borderRadius: 8
                                     }}
                                 >
-                                    {bossRef.current && (guideStep + 1 >= BOSS_GUIDES[bossRef.current.type].length ? "LET'S GO!" : "NEXT")}
+                                    {bossRef.current && (guideStep + 1 >= bossGuides[bossRef.current.type].length ? (language === 'en' ? "LET'S GO!" : '¡VAMOS!') : (language === 'en' ? 'NEXT' : 'SIGUIENTE'))}
                                 </button>
                             </div>
 
                             <div style={{ marginTop: 20, display: 'flex', gap: 8 }}>
-                                {bossRef.current && BOSS_GUIDES[bossRef.current.type].map((_, i) => (
+                                {bossRef.current && bossGuides[bossRef.current.type].map((_, i) => (
                                     <div key={i} style={{
                                         width: 12, height: 12, borderRadius: '50%',
                                         backgroundColor: i === guideStep ? '#ffcc00' : '#666'

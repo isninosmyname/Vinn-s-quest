@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>Volcano QA — isolated, no save data</title>
+<style>
+body { margin: 20px; background: #101722; color: #ffe5b5; font: 16px monospace; }
+button { padding: 8px; margin: 0 6px 10px 0; } canvas { display: block; border: 2px solid #899a9b; max-width: 100%; }
+#emblems { display:flex; } #emblems svg { width:128px; height:104px; margin:0!important; }
+</style>
+<button id="volcano">Living volcano</button><button id="blaze">Blaze assist (59 HP)</button>
+<button id="map">Volcano map</button><button id="bomb">Forest bomb</button><button id="language">EN / ES</button><button id="pause">Pause / resume</button>
+<canvas width="1000" height="500"></canvas>
+<p>A/D: move · W: jump · C: crouch · SPACE: attack. Isolated test: no save data.</p>
+<output id="status"></output><div id="emblems"></div>
+<script type="module">
+import { Boss } from '/src/game/Boss.ts';
+import { Vinn } from '/src/game/Vinn.ts';
+import { World1Map } from '/src/game/WorldMap.ts';
+import { WorldMapTransition } from '/src/game/WorldMapTransition.ts';
+import { drawVolcanoWorld } from '/src/game/VolcanoWorld.ts';
+import { VolcanoEmblem } from '/src/game/VolcanoEmblem.tsx';
+import { createElement } from 'react';
+import { createRoot } from 'react-dom/client';
+createRoot(document.querySelector('#emblems')).render(createElement('div', {style:{display:'flex'}}, createElement(VolcanoEmblem, {king:false,label:'Living volcano'}), createElement(VolcanoEmblem, {king:true,label:'Blaze King'})));
+const ctx = document.querySelector('canvas').getContext('2d'), status = document.querySelector('#status');
+const floor = [{x:0,y:460,w:1000}];
+let hero, boss, mode = 'fight', map, transition, keys = {}, previous = 0, language = 'en', paused = false;
+function start(king = false) {
+    mode = 'fight'; paused = false; keys = {};
+    hero = new Vinn(200,430); hero.onGround = true;
+    boss = new Boss(700, king ? 300 : 460, king ? 'BLAZE_KING' : 'LIVING_VOLCANO');
+    boss.introPlayed = true; boss.state = king ? 'WALKING' : 'VOLCANO_ATTACK';
+    if (king) boss.health = 59; // Test the threshold without changing the real game's save.
+}
+document.querySelector('#volcano').onclick = () => start();
+document.querySelector('#blaze').onclick = () => start(true);
+document.querySelector('#language').onclick = () => language = language === 'en' ? 'es' : 'en';
+document.querySelector('#pause').onclick = () => paused = !paused;
+document.querySelector('#map').onclick = () => { mode = 'map'; map = new World1Map(2); map.open(5,10,[1,2,3,4]); };
+document.querySelector('#bomb').onclick = () => { mode = 'bomb'; transition = new WorldMapTransition([1,2,3,4,5,6,7,8]); };
+addEventListener('keydown', e => { const k = e.key.toLowerCase(); if ([' ','w'].includes(k)) e.preventDefault(); if (k==='w' && !e.repeat) hero.jump(); keys[k]=true; });
+addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
+addEventListener('blur', () => keys = {});
+start();
+function frame(time) {
+    const dt = Math.min(.05, (time - (previous || time))/1000); previous = time;
+    if (mode === 'map') { if (!paused) map.update(dt); map.draw(ctx,language); }
+    else if (mode === 'bomb') { if (!paused) transition.update(dt); transition.draw(ctx,language); }
+    else {
+        if (!paused && hero.health > 0) {
+            hero.update(dt,keys,950,floor,1,70); boss.update(dt,hero.x); boss.volcano.hitPlayers([hero]);
+            if (hero.state === 'ATTACKING' && hero.attackTimer < .1 && Math.abs(hero.x-boss.x)<120 && Math.abs(hero.y-boss.y)<95) boss.takeDamage(boss.state === 'DIZZY' ? 10 : 1);
+        }
+        drawVolcanoWorld(ctx,0,boss.type === 'LIVING_VOLCANO' ? 5 : 10,time/1000);
+        boss.volcano.drawBackground(ctx,0,boss.health<=0);
+        ctx.fillStyle='#292630'; ctx.fillRect(0,460,1000,40);
+        boss.volcano.drawHazards(ctx,0,language); hero.draw(ctx,0); if(boss.health>0) boss.draw(ctx,0);
+        ctx.fillStyle='#151522'; ctx.fillRect(300,20,400,20); ctx.fillStyle='#ef5657'; ctx.fillRect(300,20,400*boss.health/boss.maxHealth,20);
+    }
+    status.textContent = JSON.stringify({mode, phase: mode === 'bomb' ? transition.phase : boss.volcano.phase, bossState:boss.state, hp:hero.health, bossHP:boss.health, crouched:hero.isCrouching, language, paused});
+    requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</html>

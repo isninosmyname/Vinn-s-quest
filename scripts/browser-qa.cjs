@@ -24,6 +24,7 @@ const action = process.argv[2] || 'inspect';
   await send('Emulation.setDeviceMetricsOverride', { width: 1100, height: 700, deviceScaleFactor: 1, mobile: false });
   if (!tab.url.includes('localhost:5173')) { await send('Page.navigate', { url: 'http://localhost:5173' }); await delay(1800); }
   if (action.startsWith('encounter-')) { await send('Page.navigate', { url: 'http://localhost:5173/scripts/encounter-qa.html' }); await delay(1500); }
+  if (action.startsWith('volcano-')) { await send('Page.navigate', { url: 'http://localhost:5173/scripts/volcano-qa.html' }); await delay(1500); }
   for (let attempt = 0; attempt < 40; attempt++) {
     if (await evaluate('!!document.querySelector("canvas")')) break;
     await delay(500);
@@ -37,6 +38,23 @@ const action = process.argv[2] || 'inspect';
   };
   const key = async (key, type) => send('Input.dispatchKeyEvent', { type, key, code: key === ' ' ? 'Space' : 'Key' + key.toUpperCase(), windowsVirtualKeyCode: key === ' ' ? 32 : key.toUpperCase().charCodeAt(0) });
   const tap = async k => { await key(k, 'keyDown'); await delay(100); await key(k, 'keyUp'); };
+  if (action.startsWith('volcano-')) {
+    if (action === 'volcano-map') await click('Volcano map');
+    else if (action === 'volcano-bomb') { await click('Forest bomb'); await delay(3250); await click('Pause / resume'); }
+    else {
+      await click(action === 'volcano-blaze' ? 'Blaze assist (59 HP)' : 'Living volcano');
+      if (action === 'volcano-spanish') await click('EN / ES');
+      if (action !== 'volcano-arcs') await key('c','keyDown');
+      const desired = action === 'volcano-arcs' ? 'ERUPT' : 'BEAM';
+      if (action === 'volcano-arcs') await delay(1600);
+      else for (let i=0;i<130;i++) {
+        const state = await evaluate('JSON.parse(document.querySelector("#status").textContent)');
+        if (state.phase === desired) break;
+        await delay(100);
+      }
+      await click('Pause / resume'); await key('c','keyUp');
+    }
+  }
   if (action.startsWith('encounter-')) {
     if (action === 'encounter-duff' || action === 'encounter-escape') {
       await click('Duff final hit'); await tap(' '); await delay(400);

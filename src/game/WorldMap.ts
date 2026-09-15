@@ -1,10 +1,17 @@
 import { FOREST_NAMES } from './ForestWorld';
+import { VOLCANO_NAMES, VOLCANO_NAMES_ES } from './VolcanoWorld';
 export type WorldMapLanguage = 'en' | 'es';
 
 import { FOREST_NAMES_ES } from './ForestText';
 type MapNode = { x: number; y: number; level: number };
 
 export class World1Map {
+    readonly world: 1 | 2;
+    constructor(world: 1 | 2 = 1) { this.world = world; }
+    get levelCount() { return this.world === 1 ? 8 : 10; }
+    levelName(language: WorldMapLanguage, level = this.selectedLevel) {
+        return (this.world === 1 ? (language === 'en' ? FOREST_NAMES : FOREST_NAMES_ES) : (language === 'en' ? VOLCANO_NAMES : VOLCANO_NAMES_ES))[level - 1];
+    }
     selectedLevel = 1;
     maxUnlocked = 1;
     timer = 0;
@@ -13,8 +20,9 @@ export class World1Map {
     selectAt(x: number, y: number) {
         if (Math.abs(y - 250) < 38 && x < 70) { this.moveSelection(-1); return; }
         if (Math.abs(y - 250) < 38 && x > 930) { this.moveSelection(1); return; }
-        if (y >= 68 && y <= 118 && x >= 110 && x < 894) {
-            const level = Math.floor((x - 110) / 98) + 1;
+        const cardStart = this.world === 1 ? 110 : 70, cardStep = this.world === 1 ? 98 : 86;
+        if (y >= 68 && y <= 118 && x >= cardStart && x < cardStart + cardStep * this.levelCount) {
+            const level = Math.floor((x - cardStart) / cardStep) + 1;
             if (level <= this.maxUnlocked) this.selectedLevel = level;
             return;
         }
@@ -22,7 +30,7 @@ export class World1Map {
         if (node && node.level <= this.maxUnlocked) this.selectedLevel = node.level;
     }
 
-    private readonly nodes: MapNode[] = [
+    private readonly forestNodes: MapNode[] = [
         { x: 95, y: 360, level: 1 },
         { x: 220, y: 260, level: 2 },
         { x: 350, y: 365, level: 3 },
@@ -33,9 +41,18 @@ export class World1Map {
         { x: 920, y: 190, level: 8 }
     ];
 
+    private readonly volcanoNodes: MapNode[] = [
+        { x: 100, y: 365, level: 1 }, { x: 235, y: 390, level: 2 },
+        { x: 360, y: 330, level: 3 }, { x: 245, y: 215, level: 4 },
+        { x: 420, y: 175, level: 5 }, { x: 540, y: 270, level: 6 },
+        { x: 650, y: 375, level: 7 }, { x: 805, y: 360, level: 8 },
+        { x: 730, y: 220, level: 9 }, { x: 910, y: 180, level: 10 }
+    ];
+    private get nodes() { return this.world === 1 ? this.forestNodes : this.volcanoNodes; }
+
     open(selectedLevel: number, maxUnlocked: number, completed: number[] = []) {
         this.completed = completed;
-        this.maxUnlocked = Math.max(1, Math.min(8, maxUnlocked));
+        this.maxUnlocked = Math.max(1, Math.min(this.levelCount, maxUnlocked));
         this.selectedLevel = Math.max(1, Math.min(this.maxUnlocked, selectedLevel));
         this.timer = 0;
     }
@@ -52,7 +69,7 @@ export class World1Map {
         return this.nodes[this.selectedLevel - 1];
     }
 
-    draw(ctx: CanvasRenderingContext2D, language: WorldMapLanguage) {
+    draw(ctx: CanvasRenderingContext2D, language: WorldMapLanguage, showTraveller = true) {
         ctx.save();
         ctx.imageSmoothingEnabled = false;
 
@@ -90,17 +107,19 @@ export class World1Map {
             ctx.fillStyle = '#85ae60'; ctx.fillRect(x - 12, y - 30, 20, 9);
         }
 
-        ctx.fillStyle = '#452b58'; ctx.font = '18px "Press Start 2P"'; ctx.textAlign = 'center';
-        ctx.fillText(language === 'en' ? 'WORLD 1  •  THE GREEN TRAIL' : 'MUNDO 1  •  EL SENDERO VERDE', 500, 30);
+        if (this.world === 2) this.drawVolcanoMap(ctx);
+        ctx.fillStyle = this.world === 1 ? '#452b58' : '#ffe5a6'; ctx.font = '18px "Press Start 2P"'; ctx.textAlign = 'center';
+        ctx.fillText(this.world === 1 ? (language === 'en' ? 'WORLD 1  •  THE GREEN TRAIL' : 'MUNDO 1  •  EL SENDERO VERDE') : (language === 'en' ? 'WORLD 2  •  VOLCANO LAND' : 'MUNDO 2  •  TIERRA VOLCÁNICA'), 500, 30);
         ctx.font = '10px "Press Start 2P"';
-        ctx.fillText((language === 'en' ? FOREST_NAMES : FOREST_NAMES_ES)[this.selectedLevel - 1], 500, 52);
-        for (let i = 0; i < 8; i++) {
-            const x = 110 + i * 98;
-            ctx.fillStyle = this.selectedLevel === i + 1 ? '#f9ecac' : '#c9e69c'; ctx.fillRect(x, 68, 88, 50);
-            ctx.strokeStyle = '#537457'; ctx.lineWidth = 2; ctx.strokeRect(x, 68, 88, 50);
+        ctx.fillText(this.levelName(language), 500, 52);
+        for (let i = 0; i < this.levelCount; i++) {
+            const x = (this.world === 1 ? 110 : 70) + i * (this.world === 1 ? 98 : 86);
+            const cardWidth = this.world === 1 ? 88 : 78;
+            ctx.fillStyle = this.selectedLevel === i + 1 ? '#f9ecac' : this.world === 1 ? '#c9e69c' : '#d9a18a'; ctx.fillRect(x, 68, cardWidth, 50);
+            ctx.strokeStyle = '#537457'; ctx.lineWidth = 2; ctx.strokeRect(x, 68, cardWidth, 50);
             ctx.fillStyle = this.completed.includes(i + 1) ? '#b34754' : '#345c49'; ctx.font = '12px monospace';
-            ctx.fillText('1-' + (i + 1), x + 44, 85);
-            ctx.fillText(this.completed.includes(i + 1) ? (language === 'en' ? 'CLEAR' : 'LISTO') : i === 3 ? (language === 'en' ? 'KEEP' : 'CASTILLO') : i === 7 ? 'GOLEM' : i + 1 <= this.maxUnlocked ? (language === 'en' ? 'OPEN' : 'ABIERTO') : (language === 'en' ? 'LOCKED' : 'CERRADO'), x + 44, 105);
+            ctx.fillText(this.world + '-' + (i + 1), x + cardWidth / 2, 85);
+            ctx.fillText(this.completed.includes(i + 1) ? (language === 'en' ? 'CLEAR' : 'LISTO') : this.world === 2 && i === 4 ? (language === 'en' ? 'VOLCANO' : 'VOLCÁN') : this.world === 1 && i === 3 ? (language === 'en' ? 'KEEP' : 'CASTILLO') : i === this.levelCount - 1 ? (this.world === 1 ? 'GOLEM' : 'BLAZE') : i + 1 <= this.maxUnlocked ? (language === 'en' ? 'OPEN' : 'ABIERTO') : (language === 'en' ? 'LOCKED' : 'CERRADO'), x + cardWidth / 2, 105);
         }
 
         // Dotted route.
@@ -118,9 +137,22 @@ export class World1Map {
             ctx.strokeStyle = selected ? '#ff3d81' : (unlocked ? '#54385d' : '#7e766d');
             ctx.lineWidth = selected ? 4 : 3; ctx.strokeRect(node.x - 22 - pulse, node.y - 22 - pulse, 44 + pulse * 2, 44 + pulse * 2);
 
-            if (node.level === 4 || node.level === 8) this.drawCastleMarker(ctx, node.x, node.y, unlocked, this.completed.includes(node.level));
+            if (this.world === 2 && node.level === 5) {
+                const clear = this.completed.includes(5);
+                for (let row = 0; row < 6; row++) {
+                    ctx.fillStyle = clear ? '#716065' : unlocked ? '#693847' : '#68606b';
+                    ctx.fillRect(node.x - 8 - row * 4, node.y - 22 + row * 7, 16 + row * 8, 7);
+                }
+                ctx.fillStyle = clear ? '#756264' : '#ff894c'; ctx.fillRect(node.x - 8, node.y - 22, 16, 5);
+                ctx.fillStyle = clear ? '#302b36' : '#fff0aa';
+                const eye = clear ? 2 : 3 + Math.floor((Math.sin(this.timer * 2) + 1) * 2);
+                ctx.fillRect(node.x - 14, node.y - 3, 8, eye); ctx.fillRect(node.x + 6, node.y - 3, 8, eye);
+                ctx.fillStyle = '#211828'; ctx.fillRect(node.x - 6, node.y + 7, 12, 6);
+                if (clear) { ctx.fillStyle = '#ddd2c0'; ctx.fillRect(node.x + 19, node.y - 32, 3, 25); ctx.fillStyle = '#ef4e59'; ctx.fillRect(node.x + 22, node.y - 32, 14, 9); }
+            }
+            else if ((this.world === 1 && node.level === 4) || node.level === this.levelCount) this.drawCastleMarker(ctx, node.x, node.y, unlocked, this.completed.includes(node.level));
             else {
-                ctx.fillStyle = unlocked ? '#3d8c49' : '#6f6d6a';
+                ctx.fillStyle = unlocked ? (this.world === 2 ? '#b96145' : '#3d8c49') : '#6f6d6a';
                 ctx.fillRect(node.x - 11, node.y - 11, 22, 22);
                 ctx.fillStyle = '#f8d36a'; ctx.fillRect(node.x - 6, node.y - 16, 12, 8);
                 ctx.fillStyle = '#234c36'; ctx.fillRect(node.x - 3, node.y - 4, 6, 15);
@@ -137,6 +169,7 @@ export class World1Map {
 
         const selected = this.getSelectedNode();
         // Vinn is the only travelling character on the map.
+        if (showTraveller) {
         ctx.save(); ctx.translate(selected.x - 35, selected.y - 8);
         ctx.strokeStyle = '#174e59'; ctx.lineWidth = 6; ctx.strokeRect(-6, -26, 12, 12);
         ctx.strokeStyle = '#00c9e8'; ctx.lineWidth = 3; ctx.strokeRect(-6, -26, 12, 12);
@@ -146,14 +179,35 @@ export class World1Map {
         ctx.fillStyle = '#fff4a8'; ctx.strokeStyle = '#51365a'; ctx.lineWidth = 3;
         ctx.fillRect(selected.x - 30, selected.y - 63, 60, 20); ctx.strokeRect(selected.x - 30, selected.y - 63, 60, 20);
         ctx.fillStyle = '#302442'; ctx.font = '8px "Press Start 2P"';
-        ctx.fillText(selected.level === 4 ? (language === 'en' ? 'CASTLE' : 'CASTILLO') : `${language === 'en' ? 'LEVEL' : 'NIVEL'} ${selected.level}`, selected.x, selected.y - 49);
+        ctx.fillText(this.world === 2 && selected.level === 5 ? (language === 'en' ? 'BOSS' : 'JEFE') : (this.world === 1 && selected.level === 4) || selected.level === this.levelCount ? (language === 'en' ? 'CASTLE' : 'CASTILLO') : `${language === 'en' ? 'LEVEL' : 'NIVEL'} ${selected.level}`, selected.x, selected.y - 49);
+        }
 
         // Big pixel arrows are part of the map itself, not extra characters.
         this.drawArrow(ctx, 34, 250, -1, this.selectedLevel > 1);
         this.drawArrow(ctx, 966, 250, 1, this.selectedLevel < this.maxUnlocked);
-        ctx.fillStyle = '#51365a'; ctx.font = '10px "Press Start 2P"';
+        ctx.fillStyle = this.world === 1 ? '#51365a' : '#ffe5a6'; ctx.font = '10px "Press Start 2P"';
         ctx.fillText(language === 'en' ? 'SPACE: ENTER' : 'ESPACIO: ENTRAR', 500, 480);
         ctx.restore();
+    }
+
+    private drawVolcanoMap(ctx: CanvasRenderingContext2D) {
+        ctx.fillStyle = '#452d42'; ctx.fillRect(0, 0, 1000, 500);
+        ctx.fillStyle = '#a54c43'; ctx.fillRect(25, 130, 950, 310);
+        ctx.fillStyle = '#d57b52'; ctx.fillRect(35, 140, 930, 290);
+        for (let i = 0; i < 10; i++) {
+            const x = 60 + i * 93;
+            ctx.fillStyle = '#653d43'; ctx.fillRect(x, 140 + i % 3 * 25, 75, 265 - i % 3 * 20);
+        }
+        ctx.fillStyle = '#ef6532'; ctx.fillRect(475, 120, 38, 310); ctx.fillRect(100, 280, 800, 20);
+        ctx.fillStyle = '#ffc464';
+        for (let i = 0; i < 17; i++) ctx.fillRect(484, 130 + (i * 19 + this.timer * 12) % 290, 12, 6);
+        for (const [x, y] of [[125,210],[605,170],[905,405]]) {
+            ctx.fillStyle = '#3c303d'; ctx.beginPath(); ctx.moveTo(x - 55, y + 25); ctx.lineTo(x - 12, y - 55); ctx.lineTo(x + 14, y - 55); ctx.lineTo(x + 60, y + 25); ctx.fill();
+            ctx.fillStyle = '#ffbf58'; ctx.fillRect(x - 14, y - 50, 30, 8);
+            ctx.fillStyle = '#88747e'; ctx.fillRect(x - 7, y - 76, 19, 14); ctx.fillRect(x + 8, y - 93, 25, 13);
+        }
+        ctx.fillStyle = '#d2ad86'; ctx.fillRect(459, 246, 70, 22); ctx.fillRect(692, 267, 80, 37);
+        ctx.fillStyle = '#bd6660'; for (let x = 0; x < 1000; x += 26) ctx.fillRect(x, 453, 18, 5);
     }
 
     private drawArrow(ctx: CanvasRenderingContext2D, x: number, y: number, direction: -1 | 1, active: boolean) {
