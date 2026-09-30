@@ -1,16 +1,19 @@
 import { FOREST_NAMES } from './ForestWorld';
 import { VOLCANO_NAMES, VOLCANO_NAMES_ES } from './VolcanoWorld';
+import { PAINT_NAMES, PAINT_NAMES_ES, drawPaintMap } from './PaintWorld';
 export type WorldMapLanguage = 'en' | 'es';
 
 import { FOREST_NAMES_ES } from './ForestText';
 type MapNode = { x: number; y: number; level: number };
 
 export class World1Map {
-    readonly world: 1 | 2;
-    constructor(world: 1 | 2 = 1) { this.world = world; }
-    get levelCount() { return this.world === 1 ? 8 : 10; }
+    readonly world: 1 | 2 | 3;
+    constructor(world: 1 | 2 | 3 = 1) { this.world = world; }
+    get levelCount() { return this.world === 1 ? 8 : this.world === 2 ? 10 : 12; }
+    get cardStart() { return this.world === 1 ? 110 : this.world === 2 ? 70 : 50; }
+    get cardStep() { return this.world === 1 ? 98 : this.world === 2 ? 86 : 75; }
     levelName(language: WorldMapLanguage, level = this.selectedLevel) {
-        return (this.world === 1 ? (language === 'en' ? FOREST_NAMES : FOREST_NAMES_ES) : (language === 'en' ? VOLCANO_NAMES : VOLCANO_NAMES_ES))[level - 1];
+        return (this.world === 1 ? (language === 'en' ? FOREST_NAMES : FOREST_NAMES_ES) : this.world === 2 ? (language === 'en' ? VOLCANO_NAMES : VOLCANO_NAMES_ES) : (language === 'en' ? PAINT_NAMES : PAINT_NAMES_ES))[level - 1];
     }
     selectedLevel = 1;
     maxUnlocked = 1;
@@ -20,7 +23,7 @@ export class World1Map {
     selectAt(x: number, y: number) {
         if (Math.abs(y - 250) < 38 && x < 70) { this.moveSelection(-1); return; }
         if (Math.abs(y - 250) < 38 && x > 930) { this.moveSelection(1); return; }
-        const cardStart = this.world === 1 ? 110 : 70, cardStep = this.world === 1 ? 98 : 86;
+        const cardStart = this.cardStart, cardStep = this.cardStep;
         if (y >= 68 && y <= 118 && x >= cardStart && x < cardStart + cardStep * this.levelCount) {
             const level = Math.floor((x - cardStart) / cardStep) + 1;
             if (level <= this.maxUnlocked) this.selectedLevel = level;
@@ -48,7 +51,13 @@ export class World1Map {
         { x: 650, y: 375, level: 7 }, { x: 805, y: 360, level: 8 },
         { x: 730, y: 220, level: 9 }, { x: 910, y: 180, level: 10 }
     ];
-    private get nodes() { return this.world === 1 ? this.forestNodes : this.volcanoNodes; }
+    private readonly paintNodes: MapNode[] = [
+        { x: 100, y: 375, level: 1 }, { x: 215, y: 310, level: 2 }, { x: 330, y: 375, level: 3 },
+        { x: 390, y: 270, level: 4 }, { x: 260, y: 190, level: 5 }, { x: 475, y: 180, level: 6 },
+        { x: 565, y: 300, level: 7 }, { x: 670, y: 380, level: 8 }, { x: 825, y: 375, level: 9 },
+        { x: 795, y: 265, level: 10 }, { x: 670, y: 175, level: 11 }, { x: 910, y: 180, level: 12 }
+    ];
+    private get nodes() { return this.world === 1 ? this.forestNodes : this.world === 2 ? this.volcanoNodes : this.paintNodes; }
 
     open(selectedLevel: number, maxUnlocked: number, completed: number[] = []) {
         this.completed = completed;
@@ -108,18 +117,19 @@ export class World1Map {
         }
 
         if (this.world === 2) this.drawVolcanoMap(ctx);
+        if (this.world === 3) drawPaintMap(ctx, this.timer);
         ctx.fillStyle = this.world === 1 ? '#452b58' : '#ffe5a6'; ctx.font = '18px "Press Start 2P"'; ctx.textAlign = 'center';
-        ctx.fillText(this.world === 1 ? (language === 'en' ? 'WORLD 1  •  THE GREEN TRAIL' : 'MUNDO 1  •  EL SENDERO VERDE') : (language === 'en' ? 'WORLD 2  •  VOLCANO LAND' : 'MUNDO 2  •  TIERRA VOLCÁNICA'), 500, 30);
+        ctx.fillText(this.world === 1 ? (language === 'en' ? 'WORLD 1  •  THE GREEN TRAIL' : 'MUNDO 1  •  EL SENDERO VERDE') : this.world === 2 ? (language === 'en' ? 'WORLD 2  •  VOLCANO LAND' : 'MUNDO 2  •  TIERRA VOLCÁNICA') : (language === 'en' ? 'WORLD 3  •  PAINT LAND' : 'MUNDO 3  •  TIERRA DE PINTURA'), 500, 30);
         ctx.font = '10px "Press Start 2P"';
         ctx.fillText(this.levelName(language), 500, 52);
         for (let i = 0; i < this.levelCount; i++) {
-            const x = (this.world === 1 ? 110 : 70) + i * (this.world === 1 ? 98 : 86);
-            const cardWidth = this.world === 1 ? 88 : 78;
+            const x = this.cardStart + i * this.cardStep;
+            const cardWidth = this.cardStep - 8;
             ctx.fillStyle = this.selectedLevel === i + 1 ? '#f9ecac' : this.world === 1 ? '#c9e69c' : '#d9a18a'; ctx.fillRect(x, 68, cardWidth, 50);
             ctx.strokeStyle = '#537457'; ctx.lineWidth = 2; ctx.strokeRect(x, 68, cardWidth, 50);
             ctx.fillStyle = this.completed.includes(i + 1) ? '#b34754' : '#345c49'; ctx.font = '12px monospace';
             ctx.fillText(this.world + '-' + (i + 1), x + cardWidth / 2, 85);
-            ctx.fillText(this.completed.includes(i + 1) ? (language === 'en' ? 'CLEAR' : 'LISTO') : this.world === 2 && i === 4 ? (language === 'en' ? 'VOLCANO' : 'VOLCÁN') : this.world === 1 && i === 3 ? (language === 'en' ? 'KEEP' : 'CASTILLO') : i === this.levelCount - 1 ? (this.world === 1 ? 'GOLEM' : 'BLAZE') : i + 1 <= this.maxUnlocked ? (language === 'en' ? 'OPEN' : 'ABIERTO') : (language === 'en' ? 'LOCKED' : 'CERRADO'), x + cardWidth / 2, 105);
+            ctx.fillText(this.completed.includes(i + 1) ? (language === 'en' ? 'CLEAR' : 'LISTO') : this.world === 3 && i === 5 ? 'DUFF/INK' : this.world === 2 && i === 4 ? (language === 'en' ? 'VOLCANO' : 'VOLCÁN') : this.world === 1 && i === 3 ? (language === 'en' ? 'KEEP' : 'CASTILLO') : i === this.levelCount - 1 ? (this.world === 1 ? 'GOLEM' : this.world === 2 ? 'BLAZE' : 'INK') : i + 1 <= this.maxUnlocked ? (language === 'en' ? 'OPEN' : 'ABIERTO') : (language === 'en' ? 'LOCKED' : 'CERRADO'), x + cardWidth / 2, 105);
         }
 
         // Dotted route.
@@ -150,7 +160,7 @@ export class World1Map {
                 ctx.fillStyle = '#211828'; ctx.fillRect(node.x - 6, node.y + 7, 12, 6);
                 if (clear) { ctx.fillStyle = '#ddd2c0'; ctx.fillRect(node.x + 19, node.y - 32, 3, 25); ctx.fillStyle = '#ef4e59'; ctx.fillRect(node.x + 22, node.y - 32, 14, 9); }
             }
-            else if ((this.world === 1 && node.level === 4) || node.level === this.levelCount) this.drawCastleMarker(ctx, node.x, node.y, unlocked, this.completed.includes(node.level));
+            else if ((this.world === 1 && node.level === 4) || (this.world === 3 && node.level === 6) || node.level === this.levelCount) this.drawCastleMarker(ctx, node.x, node.y, unlocked, this.completed.includes(node.level));
             else {
                 ctx.fillStyle = unlocked ? (this.world === 2 ? '#b96145' : '#3d8c49') : '#6f6d6a';
                 ctx.fillRect(node.x - 11, node.y - 11, 22, 22);
@@ -162,6 +172,10 @@ export class World1Map {
             ctx.fillStyle = '#886346'; ctx.fillRect(node.x - 3, node.y + 21, 6, 31);
             ctx.fillStyle = '#fff0b2'; ctx.fillRect(node.x - 18, node.y + 24, 36, 22);
             ctx.fillStyle = '#2f2645'; ctx.fillText(`${node.level}`, node.x, node.y + 39);
+            if (this.completed.includes(node.level)) {
+                ctx.fillStyle = '#fff0c9'; ctx.fillRect(node.x + 25, node.y - 24, 3, 28);
+                ctx.fillStyle = '#ed4968'; ctx.fillRect(node.x + 28, node.y - 24, 15, 9);
+            }
             if (!unlocked) {
                 ctx.fillStyle = '#6d6870'; ctx.font = '16px monospace'; ctx.fillText('×', node.x, node.y + 6);
             }

@@ -29,13 +29,13 @@ export const FOREST_LEVELS: ForestLevel[] = [
   // Canopy Crossing: three tree crowns over the low trail, a narrow log
   // crossing, and a descending run of ancient aqueduct stones.
   course(6800,
-    [[0,480],[570,890],[1590,420],[2120,330],[2580,1270],[3970,560],[4660,760],[5540,1260]],
+    [[0,480],[570,890],[1590,420],[2390,1460],[3970,560],[4660,760],[5540,1260]],
     [[250,365,160],[530,270,300],[940,195,360],[1370,270,190],[1700,350,140],
-     [2230,375,180],[2670,365,220],[2980,285,260],[3340,205,330],[3820,270,190],
+     [2670,365,220],[2980,285,260],[3340,205,330],[3820,270,190],
      [4090,330,170],[4810,360,220],[5130,280,250],[5490,200,210],[5850,295,250],[6260,375,190]],
-    [[780,'TECH'],[1300,'WOLF'],[1820,'TECH'],[2370,'TECH'],[2860,'WOLF'],[3390,'TECH'],
+    [[780,'TECH'],[1300,'WOLF'],[1820,'TECH'],[2420,'TECH'],[2860,'WOLF'],[3390,'TECH'],
      [3730,'TECH'],[4230,'WOLF'],[4950,'TECH'],[5670,'TECH'],[6040,'WOLF'],[6540,'TECH']],
-    [[130,412],[2340,330],[4140,285],[6030,412]]),
+    [[130,412],[2430,412],[4140,285],[6030,412]]),
   // Briar Bear Cave: rocky ravine, a long briar clearing, broken stairs,
   // then an uninterrupted cave floor for the mandatory bear fight.
   course(7200,
@@ -70,9 +70,9 @@ export const FOREST_LEVELS: ForestLevel[] = [
   // Hanging Gardens: a low fern valley leads into two broad, tiered
   // gardens. The second garden has a different staircase and exit route.
   course(8400,
-    [[0,1260],[1380,550],[2050,360],[2530,1100],[3760,640],[4530,420],
+    [[0,1260],[1380,550],[2050,360],[2790,840],[3760,640],[4530,420],
      [5070,920],[6120,500],[6750,440],[7310,1090]],
-    [[560,370,260],[920,285,190],[1460,365,280],[1870,275,280],[2310,190,370],
+    [[560,370,260],[920,285,190],[1460,365,280],[1870,275,280],[2300,260,100],
      [2810,275,430],[3370,350,200],[3870,360,220],[4200,265,310],[4650,180,330],
      [5070,265,350],[5510,340,350],[6230,360,200],[6610,270,230],[6970,195,260],[7420,320,420]],
     [[790,'WOLF'],[1130,'TECH'],[1650,'TECH'],[2320,'TECH'],[2900,'WOLF'],[3480,'TECH'],
@@ -82,10 +82,10 @@ export const FOREST_LEVELS: ForestLevel[] = [
   // the giant root arch, then a watch-post gauntlet approaching the keep.
   course(9000,
     [[0,780],[890,450],[1460,300],[1890,620],[2630,480],[3230,1570],
-     [4930,340],[5390,410],[5930,660],[6720,370],[7210,640],[7990,1010]],
+     [4930,340],[5650,940],[6720,370],[7210,640],[7990,1010]],
     [[430,360,180],[760,265,190],[1090,345,190],[1530,360,150],[2050,335,210],
      [2390,250,190],[2740,345,200],[3380,365,300],[3790,275,360],[4290,195,250],
-     [4680,280,200],[5010,370,180],[5530,345,180],[6070,285,280],[6490,365,210],
+     [4680,280,200],[5010,370,180],[5650,345,150],[6070,285,280],[6490,365,210],
      [7330,360,220],[7660,270,200],[8080,335,270],[8530,255,220]],
     [[680,'TECH'],[1240,'WOLF'],[1670,'TECH'],[2380,'TECH'],[2890,'TECH'],[3670,'WOLF'],
      [4200,'TECH'],[4610,'WOLF'],[5160,'TECH'],[5650,'TECH'],[6310,'TECH'],[6910,'WOLF'],
@@ -118,7 +118,7 @@ export const FOREST_LETTERS = [
   [{ x: 230, text: 'Dear Vinn, A/D moves, W jumps, and SPACE swings your sword. Hold C to crouch and walk beneath low obstacles. Follow the signs along the royal trail.' },
    { x: 910, text: 'Some wolves hide in bushes. Many bushes are empty. A pair of glowing eyes is your warning. Step back when the wolf prepares to attack, then strike while it rests.' },
    { x: 650, text: 'Feather crystals give you a second jump for sixty seconds. Collect another to reset the minute. Watch the timer. The lower trail remains passable after the magic fades.' }],
-  [{ x: 230, text: 'The branches above the trail form a second route. Jump from the low boughs to explore the canopy. You can always return to the lower path.' }],
+  [{ x: 230, text: 'The branches above the trail form a second route. Only a few old trees carry strong vines. At the wide ravine, press E near the golden vine tip, use A/D to swing, then W to leap forward. Your momentum carries you across without a feather. Your companion uses the arrow keys to swing and leap.' }],
   [{ x: 5910, text: 'Press E at the cave door to enter. The bear swipes its claws and sometimes raises its front paws for a stomp. Jump over the shockwave, then strike while it rests. Defeat it to open the exit.' }],
   [{ x: 5460, text: 'Duff waits beyond these halls. Duck the high pole and jump the low pole. Strike RIGHT, then LEFT. The poles will become steps. Reach his perch to hit him. Four hits will break his machine.' }],
   [{ x: 210, text: 'This river has washed away the old bridge. Use the remaining islands and the stone arches above them. The moving water below the gaps marks where the bridge has fallen.' }],
@@ -164,7 +164,7 @@ export function drawForestWorld(ctx: CanvasRenderingContext2D, camera: number, l
       ctx.fillRect(x + 46, 40 + layer * 5, 22 + layer * 9, 430);
       ctx.fillRect(x - 12, 30, 160, 44); ctx.fillRect(x + 10, 10, 120, 50);
       ctx.fillRect(x + 55, 200, 115, 12); ctx.fillRect(x - 35, 300, 105, 10);
-      if (layer === 2) {
+      if (layer === 2 && ((i + Math.floor(camera * speed / spacing) + level) % 5 + 5) % 5 === 1) {
         ctx.strokeStyle = '#94b663'; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(x + 120, 70);
         for (let y = 70; y < 295; y += 15) ctx.lineTo(x + 120 + Math.sin(y / 45 + time * 0.6) * 12, y);
         ctx.stroke();

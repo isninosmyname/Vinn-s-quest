@@ -588,3 +588,58 @@ canvas {
 .map-actions button:disabled { opacity: .45; cursor: default; }
 .victory-actions h2 { display: none; }
 .map-actions button:focus-visible, .victory-actions button:focus-visible { outline: 3px solid #f24b65; outline-offset: 3px; }
+
+.game-stage { position: relative; width: 100%; max-width: 1000px; aspect-ratio: 2 / 1; }
+.game-stage canvas { display: block; }
+.death-actions {
+    position: absolute; top: 74%; left: 2%; width: 96%; text-align: center;
+    color: #ffe6ad; font: bold clamp(9px, 1.4vw, 14px) monospace; z-index: 1100;
+}
+.death-actions p { margin: 0 0 .45em; }
+.death-buttons { display: flex; justify-content: center; gap: 10px; margin-bottom: .5em; }
+.death-buttons button {
+    cursor: pointer; color: #fff1d2; background: #251e2d; border: 2px solid #d5b274;
+    padding: .65em 1em; font: inherit; box-shadow: 3px 3px 0 #694b32;
+}
+.death-buttons button:hover { background: #48384a; }
+.death-buttons button:focus-visible { outline: 3px solid #00f2ff; outline-offset: 3px; }
+.death-buttons button:disabled { opacity: .5; cursor: default; }
+.lava-keys { position: absolute; top: 29%; left: 0; width: 100%; display: flex; justify-content: center; gap: 14px; z-index: 1100; }
+.lava-keys button { background: #281822; color: #ffe6ac; border: 3px solid #754b34; font: bold clamp(16px, 3vw, 28px) monospace; padding: .3em .6em; cursor: pointer; }
+.lava-keys button.current { border-color: #ffe494; box-shadow: 0 0 12px #ff823e; }
+.lava-keys button.complete { color: #87ffc8; border-color: #69c998; }
+.lava-keys button:focus-visible { outline: 3px solid #00f2ff; }
+
+.pause-trigger {
+    position: absolute; top: 16px; right: 16px; z-index: 2100;
+    border: 2px solid #e8c57d; background: #201c31; color: #ffe4a5;
+    font: bold 13px monospace; padding: 10px 14px; cursor: pointer;
+}
+.quest-modal-backdrop {
+    position: absolute; inset: 0; z-index: 10000; background: #070510df;
+    display: flex; align-items: center; justify-content: center; padding: 12px;
+    pointer-events: auto;
+}
+.quest-panel {
+    width: min(450px, 96%); max-height: 100%; overflow-y: auto;
+    border: 4px solid #cb9c53; background: #201c31; color: #fff0c9;
+    box-shadow: 7px 7px 0 #0c0813; padding: clamp(12px, 3vh, 26px);
+    text-align: center; font: 14px monospace;
+    display: flex; flex-direction: column; gap: 12px;
+}
+.quest-panel h2, .quest-panel h3, .quest-panel p { margin: 0; }
+.quest-panel h2 { color: #ffe09b; font: bold clamp(18px, 3vw, 24px) monospace; }
+.quest-panel p { line-height: 1.5; }
+.quest-panel button {
+    font: bold 13px monospace; padding: 12px 10px; cursor: pointer;
+    background: #ffe0a0; color: #302438; border: 3px solid #b4844e;
+    box-shadow: 3px 3px 0 #0d0a18;
+}
+.quest-panel button:hover { background: #fff0c9; }
+.quest-panel button:disabled { opacity: .5; cursor: default; }
+.quest-panel button:focus-visible, .pause-trigger:focus-visible { outline: 3px solid #00f2ff; outline-offset: 3px; }
+.shop-item { border: 2px dashed #8f704d; padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+.shop-heart { color: #ff6585; font: bold 48px monospace; text-shadow: 4px 4px 0 #702844; line-height: 1; }
+.shop-wallet { color: #ffdb76; }
+.paint-ladder-controls { position: absolute; bottom: 90px; right: 12px; display: flex; gap: 8px; pointer-events: auto; }
+.paint-ladder-controls .mobile-btn { width: auto; padding: 8px; font: bold 12px monospace; }

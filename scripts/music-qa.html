@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>Boss music check — no save data</title>
+<style>body{background:#172130;color:#f7e6c4;font:18px monospace;padding:24px}button{padding:14px;margin:8px}pre{white-space:pre-wrap}</style>
+<h1>Small-boss music playback check</h1>
+<p>Each test starts exploration, then enters the encounter automatically after six seconds.</p>
+<button id="duff">Test Duff</button><button id="bear">Test bear</button><button id="volcano">Test volcano</button>
+<button id="retry">Retry audio</button>
+<pre id="status"></pre>
+<script type="module">
+import { RecordedMusic, selectRecordedMusic } from '/src/game/RecordedMusic.ts';
+import forest from '/Grasslands.mp3?url';
+import volcano from '/Volcano _land.mp3?url';
+import smallBoss from '/small_boss.mp3?url';
+import bigBoss from '/Big_Boss.mp3?url';
+import victory from '/Winning.MP3?url';
+import map from '/Map.mp3?url';
+const music = new RecordedMusic({forest,volcano,smallBoss,bigBoss,victory,map});
+let pending, encounter = 'none';
+for (const kind of ['duff','bear','volcano']) document.querySelector('#'+kind).onclick = () => {
+    clearTimeout(pending); encounter = 'approach';
+    music.setTrack(kind === 'volcano' ? 'volcano' : 'forest'); music.resume();
+    pending = setTimeout(() => {
+        encounter = kind;
+        const context = kind === 'duff' ? {world:1,duff:{phase:'INTRO',health:4}} : kind === 'bear' ? {world:1,room:{kind:'BEAR',phase:'FIGHT'}} : {world:2,boss:{type:'LIVING_VOLCANO',introPlayed:true,health:120}};
+        music.setTrack(selectRecordedMusic({state:'PLAYING',...context}));
+    },6000);
+};
+document.querySelector('#retry').onclick = () => music.resume();
+setInterval(() => {
+    const p = music.player;
+    document.querySelector('#status').textContent = JSON.stringify({encounter,active:music.active,source:p.currentSrc,time:p.currentTime,paused:p.paused,loop:p.loop,readyState:p.readyState,error:music.playbackError || p.error?.message || null},null,2);
+},100);
+addEventListener('pagehide',()=>{clearTimeout(pending);music.dispose()});
+</script>
+</html>

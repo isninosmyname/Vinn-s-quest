@@ -1,7 +1,39 @@
-export function drawVictory(ctx: CanvasRenderingContext2D, time: number, variant: number, color: string, language: 'en' | 'es' = 'en') {
-  ctx.save(); ctx.fillStyle = '#142d30'; ctx.fillRect(0, 0, 1000, 500);
-  ctx.fillStyle = '#234841'; ctx.fillRect(0, 390, 1000, 110);
-  ctx.fillStyle = '#719b65'; ctx.fillRect(0, 390, 1000, 6);
+export function reachedFinish(players: { x: number; y: number; health: number; onGround: boolean }[], length: number, unlocked: boolean) {
+  return unlocked && players.some(p => p.health > 0 && p.onGround && Math.abs(p.y - 430) < 25 && p.x >= length - 145);
+}
+
+export function drawFinishFlag(ctx: CanvasRenderingContext2D, x: number, time: number, unlocked: boolean, world: number, floor = 460, raise = 1) {
+  ctx.save();
+  ctx.fillStyle = world === 2 ? '#51404c' : '#53654c'; ctx.fillRect(x - 21, floor - 10, 48, 10);
+  ctx.fillStyle = '#ecc87e'; ctx.fillRect(x, floor - 165, 7, 155);
+  ctx.fillStyle = '#fff0b9'; ctx.fillRect(x - 3, floor - 174, 13, 10);
+  const y = floor - 65 - (unlocked ? Math.min(1, raise) * 90 : 0);
+  for (let stripe = 0; stripe < 14; stripe++) {
+    const wave = Math.round(Math.sin(time * 6 - stripe * .35) * stripe * .35);
+    ctx.fillStyle = unlocked ? (stripe % 2 ? '#e66269' : '#f88479') : '#786976';
+    ctx.fillRect(x + 7 + stripe * 4, y + wave, 4, 32);
+  }
+  ctx.fillStyle = unlocked ? '#ffe8a1' : '#b9abb4';
+  ctx.fillRect(x + 25, y + 15, 19, 8); ctx.fillRect(x + 25, y + 10, 4, 7); ctx.fillRect(x + 33, y + 7, 4, 10); ctx.fillRect(x + 40, y + 10, 4, 7);
+  ctx.restore();
+}
+
+export function drawVictory(ctx: CanvasRenderingContext2D, time: number, variant: number, color: string, language: 'en' | 'es' = 'en', world = 1) {
+  ctx.save(); ctx.fillStyle = world === 2 ? '#281c36' : '#142d30'; ctx.fillRect(0, 0, 1000, 500);
+  if (world === 3) {
+    ctx.fillStyle = '#392447'; ctx.fillRect(0, 0, 1000, 500);
+    for (let i = 0; i < 12; i++) {
+      ctx.fillStyle = ['#875fb0', '#ce6fb3', '#50a9ba'][i % 3];
+      ctx.fillRect(i * 90, 155 + i % 3 * 45, 50, 240);
+      ctx.fillStyle = '#f4d9a1'; ctx.fillRect(i * 90 - 4, 145 + i % 3 * 45, 58, 12);
+    }
+  }
+  if (world === 2) {
+    for (let i = 0; i < 4; i++) { ctx.fillStyle = '#573440'; ctx.beginPath(); ctx.moveTo(i * 300 - 90, 390); ctx.lineTo(i * 300 + 100, 190); ctx.lineTo(i * 300 + 290, 390); ctx.fill(); ctx.fillStyle = '#ed9b58'; ctx.fillRect(i * 300 + 88, 211, 24, 8); }
+  }
+  ctx.fillStyle = world === 2 ? '#453240' : '#234841'; ctx.fillRect(0, 390, 1000, 110);
+  ctx.fillStyle = world === 2 ? '#d18a60' : '#719b65'; ctx.fillRect(0, 390, 1000, 6);
+  drawFinishFlag(ctx, 725, time, true, world, 390, time / 1.2);
   for (let i = 0; i < 36; i++) {
     ctx.fillStyle = ['#ffda78', '#f38aa1', '#83daca'][i % 3];
     ctx.fillRect((i * 137 + Math.sin(time + i) * 24) % 1000, (time * 45 + i * 31) % 385, 5, 9);

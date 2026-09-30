@@ -1,6 +1,7 @@
 import { World1Map } from './WorldMap';
 
 export class WorldMapTransition {
+    readonly destination = 2;
     timer = 0;
     readonly forest = new World1Map(1);
     readonly volcano = new World1Map(2);

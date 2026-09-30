@@ -17,6 +17,7 @@ const { Enemy } = source('Enemy');
 const { DuffBoss } = source('DuffBoss');
 const { FOREST_LEVELS, DUFF_ARENA } = source('ForestWorld');
 const { World1Map } = source('WorldMap');
+const { SwingVine, FOREST_VINES } = source('SwingVine');
 const ground = [{ x: 0, y: 460, w: 20000 }];
 const hero = new Vinn(100, 430);
 for (const player of [hero, new Vinn(150, 430, '#ff00ff', 'SPIKY', 'Jhon')]) {
@@ -36,22 +37,36 @@ assert(hero.isCrouching && hero.vx > 0 && hero.vx < 4.5);
 assert.equal(hero.bounds.bottom - hero.bounds.top, 38);
 hero.update(1 / 60, {}, 19000, ground); assert.equal(hero.bounds.bottom - hero.bounds.top, 89);
 
-// Run the ground route through every level with ordinary jumps only.
+// Run every forest without feathers; wide ravines use actual grab/swing/leap physics.
 assert.equal(FOREST_LEVELS.length, 8);
 for (const [i, level] of FOREST_LEVELS.entries()) {
   const p = new Vinn(100, 430); const floor = level.platforms.filter(p => p.y === 460);
+  const vines = FOREST_VINES[i].map(a => new SwingVine(a));
   let frames = 0;
   while (p.x < level.length - 100 && frames++ < 20000) {
+    vines.forEach(v => v.time += 1 / 60);
+    let move = true;
     const platform = floor.find(q => p.x >= q.x && p.x <= q.x + q.w);
-    if (p.onGround && platform && platform.x + platform.w - p.x < 45 && platform.x + platform.w < level.length - 100) p.jump();
-    p.update(1 / 60, { d: true }, level.length - 50, floor);
+    if (p.vine) {
+      if (p.swingAngle > .35 && p.swingSpeed > 0) p.jump();
+    } else if (p.onGround && platform && platform.x + platform.w - p.x < 45 && platform.x + platform.w < level.length - 100) {
+      const next = floor.find(q => q.x > platform.x);
+      if (next && next.x - platform.x - platform.w > 200) {
+        const vine = vines.find(v => v.canGrab(p));
+        if (vine) vine.grab(p); else move = false;
+      } else p.jump();
+    }
+    p.update(1 / 60, { d: move }, level.length - 50, level.platforms);
   }
-  assert(p.x >= level.length - 100 && p.health === p.maxHealth, 'Ordinary-jump route failed in level ' + (i + 1));
+  assert(p.x >= level.length - 100 && p.health === p.maxHealth, 'Feather-free forest route failed in level ' + (i + 1) + ' at ' + p.x);
   assert(level.enemies.length >= 10);
 }
 assert(FOREST_LEVELS[2].enemies.some(e => e.type === 'BEAR'));
 assert(FOREST_LEVELS[3].enemies.every(e => e.type === 'TECH'));
 assert.equal(FOREST_LEVELS[7].bossType, 'GOLEM');
+assert.deepEqual(Array.from(FOREST_LEVELS, l => l.items.length), [3,4,4,3,4,4,4,4], 'Keep forest feather counts unchanged');
+assert(FOREST_VINES.some(v => v.length === 0));
+assert(FOREST_VINES.every(v => v.length <= 2), 'Only selected trees receive usable vines');
 
 const wolf = new Enemy(500, 430, 'WOLF'); wolf.update(1 / 60, 100, ground); assert(wolf.hidden);
 wolf.update(1 / 60, 320, ground); assert(!wolf.hidden);
@@ -165,7 +180,7 @@ entryBoss.update(0, [tired, fallen], false); assert.equal(tired.health, 26); ass
 tired.health = 9; entryBoss.startBattle(); entryBoss.update(1.5, [tired, fallen], false);
 assert.equal(tired.health, 9, 'Do not refill health every boss phase');
 
-const { VOLCANO_LEVELS, VOLCANO_NAMES, VOLCANO_NAMES_ES } = source('VolcanoWorld');
+const { VOLCANO_LEVELS, VOLCANO_NAMES, VOLCANO_NAMES_ES, VOLCANO_LETTERS } = source('VolcanoWorld');
 assert.equal(VOLCANO_LEVELS.length, 10); assert.equal(VOLCANO_NAMES.length, 10); assert.equal(VOLCANO_NAMES_ES.length, 10);
 assert.equal(new Set(VOLCANO_LEVELS.map(l => JSON.stringify(l.platforms))).size, 10);
 for (const [i, level] of VOLCANO_LEVELS.entries()) {
@@ -174,10 +189,13 @@ for (const [i, level] of VOLCANO_LEVELS.entries()) {
   while (p.x < level.length - 100 && frames++ < 20000) {
     const platform = floor.find(q => p.x >= q.x && p.x <= q.x + q.w);
     if (p.onGround && platform && platform.x + platform.w - p.x < 45 && platform.x + platform.w < level.length - 100) p.jump();
-    p.update(1 / 60, { d: true }, level.length - 50, floor);
+    p.update(1 / 60, { d: true }, level.length - 50, level.platforms);
   }
   assert(p.x >= level.length - 100 && p.health === p.maxHealth, 'Volcano route ' + (i + 1));
   assert(level.enemies.every(e => floor.some(p => e.x >= p.x && e.x <= p.x + p.w)));
+  assert(level.length >= 6000 && level.items.length >= 1 && level.items.length <= 2);
+  assert(level.items.every(item => floor.some(p => item.x >= p.x && item.x <= p.x + p.w)));
+  assert(VOLCANO_LETTERS[i].every(note => note.text && note.es && floor.some(p => note.x >= p.x && note.x <= p.x + p.w)));
 }
 assert.equal(VOLCANO_LEVELS.filter(l => l.isBoss).length, 2);
 assert.equal(VOLCANO_LEVELS[4].bossType, 'LIVING_VOLCANO');
@@ -275,3 +293,34 @@ for (const retained of [null, new Enemy(700, 430, 'BEAR')]) {
   assert.equal(flames.current.length,0); assert.equal(swords.current.length,0);
 }
 console.log('PASS: boss entry clears approach enemies/projectiles and preserves the cave boss.');
+
+const { reachedFinish, drawFinishFlag, drawVictory } = source('Victory');
+assert(!reachedFinish([{x:6100,y:430,health:26,onGround:true}],6200,false), 'Boss locks the flag');
+assert(!reachedFinish([{x:6100,y:600,health:0,onGround:false}],6200,true), 'Falling/dead player cannot clear');
+assert(reachedFinish([{x:100,y:430,health:0,onGround:true},{x:6100,y:430,health:26,onGround:true}],6200,true), 'Either living player may finish');
+const ctx = new Proxy({}, {get:(_target,key)=>key === 'measureText' ? text => ({width:text.length*8}) : ()=>{}, set:()=>true});
+for (const language of ['en','es']) for (const world of [1,2]) for (const variant of [0,1,2]) {
+  for (const t of [0,.4,1,2,3.5,6]) { drawFinishFlag(ctx,850,t,true,world); drawVictory(ctx,t,variant,'#00f2ff',language,world); }
+}
+for (const fps of [30,60,120]) {
+  const vine = new SwingVine({x:2200,y:105,length:310});
+  const p = new Vinn(1980,430); p.onGround = true;
+  assert(vine.grab(p)); assert.equal(p.vine,vine);
+  for(let f=0;f<fps*4 && p.swingAngle <= .35;f++) p.update(1/fps,{d:true},6800,[]);
+  assert(p.swingAngle > .35 && p.swingSpeed > 0);
+  p.jump(); assert.equal(p.vine,null); assert(p.vy < 0 && p.vx >= 6 && p.vineCooldown > 0);
+  assert(!p.hasDoubleJump);
+  for (const [index, bank, landing] of [[1,2010,2390],[5,2410,2790],[6,5270,5650]]) {
+    const course = FOREST_LEVELS[index], rope = new SwingVine(FOREST_VINES[index][0]);
+    const runner = new Vinn(bank - 35,430); runner.onGround = true; assert(rope.grab(runner));
+    for(let frame=0; frame<fps*6 && !(runner.onGround && runner.x >= landing); frame++) {
+      if(runner.vine && runner.swingAngle>.35 && runner.swingSpeed>0) runner.jump();
+      runner.update(1/fps,{d:true},course.length-50,course.platforms);
+    }
+    assert(runner.onGround && runner.x >= landing && runner.health === 26 && !runner.hasDoubleJump, 'Vine ravine '+(index+1)+' at '+fps+' FPS');
+  }
+}
+const hanging = new Vinn(1980,430), damageVine = new SwingVine({x:2200,y:105,length:310});
+hanging.onGround = true; damageVine.grab(hanging); hanging.takeDamage(1); assert.equal(hanging.vine,null);
+hanging.isHit = false; hanging.reset(1980,430); assert.equal(hanging.vineBoostTime,0);
+console.log('PASS: selected-tree swinging vines, feather-free forest/Volcano routes, unchanged forest feathers, sparse Volcano feathers, unique bilingual letters, co-op finish flags and all victory variants.');

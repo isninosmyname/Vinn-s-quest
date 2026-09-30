@@ -25,11 +25,13 @@ const action = process.argv[2] || 'inspect';
   if (!tab.url.includes('localhost:5173')) { await send('Page.navigate', { url: 'http://localhost:5173' }); await delay(1800); }
   if (action.startsWith('encounter-')) { await send('Page.navigate', { url: 'http://localhost:5173/scripts/encounter-qa.html' }); await delay(1500); }
   if (action.startsWith('volcano-')) { await send('Page.navigate', { url: 'http://localhost:5173/scripts/volcano-qa.html' }); await delay(1500); }
+  if (action === 'music-small-bosses') { await send('Page.navigate', { url: 'http://localhost:5173/scripts/music-qa.html' }); await delay(1500); }
+  const readySelector = action === 'music-small-bosses' ? '#status' : 'canvas';
   for (let attempt = 0; attempt < 40; attempt++) {
-    if (await evaluate('!!document.querySelector("canvas")')) break;
+    if (await evaluate(`!!document.querySelector(${JSON.stringify(readySelector)})`)) break;
     await delay(500);
   }
-  if (!await evaluate('!!document.querySelector("canvas")')) throw new Error('Game did not render: ' + await evaluate('document.body.innerText'));
+  if (!await evaluate(`!!document.querySelector(${JSON.stringify(readySelector)})`)) throw new Error('Game did not render: ' + await evaluate('document.body.innerText'));
   const click = async text => {
     const point = await evaluate(`(() => { const b = [...document.querySelectorAll('button')].find(b => b.textContent.trim() === ${JSON.stringify(text)}); if (!b) return null; const r = b.getBoundingClientRect(); return { x: r.x + r.width/2, y: r.y + r.height/2 }; })()`);
     if (!point) throw new Error('Missing button: ' + text);
@@ -38,6 +40,19 @@ const action = process.argv[2] || 'inspect';
   };
   const key = async (key, type) => send('Input.dispatchKeyEvent', { type, key, code: key === ' ' ? 'Space' : 'Key' + key.toUpperCase(), windowsVirtualKeyCode: key === ' ' ? 32 : key.toUpperCase().charCodeAt(0) });
   const tap = async k => { await key(k, 'keyDown'); await delay(100); await key(k, 'keyUp'); };
+  if (action === 'music-small-bosses') {
+    for (const [label, kind] of [['Test Duff','duff'],['Test bear','bear'],['Test volcano','volcano']]) {
+      await click(label);
+      let status;
+      for (let i=0;i<100;i++) {
+        status = await evaluate('JSON.parse(document.querySelector("#status").textContent)');
+        if (status.encounter === kind && status.active === 'smallBoss' && status.time > 1) break;
+        await delay(150);
+      }
+      if (status.encounter !== kind || status.active !== 'smallBoss' || status.time <= 1 || status.paused || !status.loop || status.error || !status.source.includes('small_boss')) throw new Error('Music check failed: '+JSON.stringify(status));
+      console.log(JSON.stringify({result:'PASS',...status}));
+    }
+  }
   if (action.startsWith('volcano-')) {
     if (action === 'volcano-map') await click('Volcano map');
     else if (action === 'volcano-bomb') { await click('Forest bomb'); await delay(3250); await click('Pause / resume'); }

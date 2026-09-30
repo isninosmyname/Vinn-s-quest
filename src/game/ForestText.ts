@@ -8,7 +8,7 @@ export const FOREST_LETTERS_ES = [
     ['Querido Vinn: A/D para moverte, W para saltar y ESPACIO para usar la espada. Mantén C para agacharte y caminar bajo los obstáculos. Sigue las señales del sendero real.',
      'Algunos lobos se esconden en los arbustos, pero muchos están vacíos. Un par de ojos brillantes te avisa del peligro. Retrocede cuando el lobo prepare su ataque y golpea mientras descansa.',
      'Los cristales de pluma te dan un segundo salto durante sesenta segundos. Recoge otro para reiniciar el minuto. Vigila el contador. El camino inferior se puede recorrer sin esta magia.'],
-    ['Las ramas sobre el sendero forman una segunda ruta. Salta desde las ramas bajas para explorar las copas. Siempre puedes regresar al camino inferior.'],
+    ['Las ramas sobre el sendero forman otra ruta. Solo algunos árboles viejos tienen lianas resistentes. Ante el barranco, pulsa E cerca de la punta dorada, usa A/D para balancearte y W para saltar. El impulso te lleva al otro lado sin plumas. Tu compañero usa las flechas para balancearse y saltar.'],
     ['Pulsa E ante la puerta de la cueva. El oso da zarpazos y a veces levanta las patas delanteras para golpear el suelo. Salta la onda y ataca mientras descansa. Véncelo para abrir la salida.'],
     ['Duff espera tras estos pasillos. Agáchate bajo la barra alta y salta la baja. Activa DERECHA y luego IZQUIERDA. Las barras serán escalones. Sube hasta Duff y golpéalo. Cuatro golpes destruirán su máquina.'],
     ['El río arrasó el viejo puente. Usa las islas que quedan y los arcos de piedra. El agua bajo los huecos señala dónde cayó el puente.'],

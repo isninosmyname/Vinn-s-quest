@@ -1,6 +1,15 @@
 export type GameState = 'IDLE' | 'WALKING' | 'ATTACKING' | 'DAMAGED' | 'JUMPING' | 'SINKING' | 'AIMING';
 
+import type { SwingVine } from './SwingVine';
+
 export class Vinn {
+  vine: SwingVine | null = null;
+  swingAngle = 0;
+  swingSpeed = 0;
+  vineCooldown = 0;
+  vineBoostX = 0;
+  vineBoostTime = 0;
+  lavaFalls = false;
   x: number;
   y: number;
   vx: number = 0;
@@ -85,6 +94,8 @@ export class Vinn {
   }
 
   reset(x: number, y: number) {
+      this.lavaFalls = false;
+      this.vine = null; this.vineBoostTime = 0; this.vineCooldown = 0;
       this.x = x;
       this.y = y;
       this.vx = 0;
@@ -123,6 +134,7 @@ export class Vinn {
 
   takeDamage(amount: number, knockbackDir?: number, knockbackForce: number = 10) {
     if (this.isHit) return;
+    this.vine?.release(this, false);
     this.health -= amount;
     this.restTimer = 0;
     this.recoveryProgress = 0;
@@ -150,6 +162,7 @@ export class Vinn {
   }
 
   jump() {
+    if (this.vine && this.health > 0) { this.vine.release(this); return; }
     if (this.health <= 0 || this.isCrouching) return;
     if (this.onGround || this.isSinking) {
       this.vy = -12;
@@ -170,12 +183,17 @@ export class Vinn {
 
   update(dt: number, keys: Record<string, boolean>, maxX: number = 2350, platforms: {x: number, y: number, w: number, h?: number, type?: 'MUSHROOM' | 'PAINT' | 'NORMAL'}[] = [], speedMult: number = 1.0, minX: number = 50) {
     this.animTimer += dt;
+    this.vineCooldown = Math.max(0, this.vineCooldown - dt);
     this.recover(dt, this.onGround && this.state === 'IDLE' && Math.abs(this.vx) < 0.5 && !this.isSlipping && !this.isSinking && !keys['a'] && !keys['d'] && !keys['w'] && !keys[' ']);
     if (this.doubleJumpTimer > 0) {
       this.doubleJumpTimer = Math.max(0, this.doubleJumpTimer - dt);
       if (this.doubleJumpTimer === 0) this.hasDoubleJump = false;
     }
     this.isCrouching = !!keys['c'] && this.onGround && !this.isSlipping;
+    if (this.vine) {
+      this.vine.swing(this, dt, keys['d'] ? 1 : keys['a'] ? -1 : 0);
+      return;
+    }
     if (this.isCrouching) speedMult *= 0.55;
     
     if (this.speedBoostTimer > 0) {
@@ -200,14 +218,7 @@ export class Vinn {
         this.rechargeTimer = 0;
     }
 
-    if (this.health <= 0) {
-        if (keys[' ']) {
-            this.health = this.maxHealth;
-            this.x = this.lastSafeX;
-            this.y = this.lastSafeY;
-        }
-        return;
-    }
+    if (this.health <= 0) return;
 
     if (this.state === 'AIMING') {
       this.vx = 0;
@@ -251,7 +262,7 @@ export class Vinn {
               this.y = p.y - this.limbLength;
               this.vy = 0;
               this.onGround = true;
-              this.lastSafeX = this.x;
+              this.lastSafeX = Math.max(p.x + Math.min(30, p.w / 2), Math.min(p.x + p.w - Math.min(30, p.w / 2), this.x));
               this.lastSafeY = this.y;
           }
       } else if (p.type === 'MUSHROOM') {
@@ -266,13 +277,14 @@ export class Vinn {
               this.y = p.y - this.limbLength;
               this.vy = 0;
               this.onGround = true;
-              this.lastSafeX = this.x;
+              this.lastSafeX = Math.max(p.x + Math.min(30, p.w / 2), Math.min(p.x + p.w - Math.min(30, p.w / 2), this.x));
               this.lastSafeY = this.y;
           }
       }
     });
 
     if (this.onGround) {
+        this.vineBoostTime = 0;
         this.canDoubleJump = true;
     }
 
@@ -312,7 +324,10 @@ export class Vinn {
       // Can't do anything while fallen — skip the rest of movement
       return;
     } else {
-      if (keys['a'] || keys['ArrowLeft']) {
+      if (this.vineBoostTime > 0 && !this.onGround) {
+        this.vineBoostTime = Math.max(0, this.vineBoostTime - dt);
+        this.vx = this.vineBoostX;
+      } else if (keys['a'] || keys['ArrowLeft']) {
         this.vx = (this.isSinking ? -1.5 : -4.5 * speedMult);
         this.direction = -1;
       } else if (keys['d'] || keys['ArrowRight']) {
@@ -346,11 +361,15 @@ export class Vinn {
     if (this.x < minX) this.x = minX;
     if (this.x > maxX) this.x = maxX;
     
-    if (this.y > 600) {
-        this.takeDamage(2);
+    if (this.y > 600 && !this.lavaFalls) {
+        // Falls always cost half a health bar, including during hit immunity.
+        this.isHit = false;
+        this.takeDamage(this.maxHealth / 2);
+        this.health = Math.max(0, this.health);
         this.x = this.lastSafeX;
         this.y = this.lastSafeY - 50;
-        this.vy = 0;
+        this.vx = 0; this.vy = 0; this.onGround = false;
+        this.isSlipping = false; this.isSinking = false; this.state = 'JUMPING';
     }
   }
 
@@ -370,6 +389,18 @@ export class Vinn {
         ctx.restore(); return;
     }
 
+    if (this.vine) {
+        ctx.save(); ctx.translate(relX, relY - 36); ctx.rotate(-this.swingAngle * 0.22);
+        ctx.strokeStyle = color; ctx.lineWidth = 4; ctx.lineCap = 'round';
+        ctx.strokeRect(-8, 8, 16, 17);
+        ctx.beginPath(); ctx.moveTo(0, 25); ctx.lineTo(0, 49);
+        ctx.moveTo(0, 32); ctx.lineTo(-12, 17); ctx.lineTo(0, 0);
+        ctx.moveTo(0, 32); ctx.lineTo(12, 16); ctx.lineTo(0, 0);
+        ctx.moveTo(0, 49); ctx.lineTo(-14, 63); ctx.lineTo(-22, 60 + Math.sin(animTimer * 7) * 3);
+        ctx.moveTo(0, 49); ctx.lineTo(13, 61); ctx.lineTo(21, 65); ctx.stroke();
+        ctx.fillStyle = '#f5d384'; ctx.fillRect(7, 29, 4, 30);
+        ctx.restore(); return;
+    }
     if (this.isCrouching) {
         const feet = relY + this.limbLength;
         const step = Math.sin(animTimer * 12) * Math.min(6, Math.abs(this.vx) * 3);
